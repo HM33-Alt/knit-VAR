@@ -7,16 +7,20 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.zip.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class DependencyServiceImpl implements DependencyService {
 
+    private static final Logger logger = LoggerFactory.getLogger(DependencyServiceImpl.class);
     private Map<String, List<String>> dependencyGraph = new HashMap<>();
     private Path tempProjectDir;
 
     @Override
     public void processProject(MultipartFile file) {
         try {
+            dependencyGraph.clear();
             tempProjectDir = Files.createTempDirectory("knit_project");
             unzip(file.getInputStream(), tempProjectDir);
             scanClasses(tempProjectDir);
@@ -61,7 +65,8 @@ public class DependencyServiceImpl implements DependencyService {
                 @Override
                 public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                     if (desc.contains("KnitComponent")) {
-                        componentName = classFile.getFileName().toString();
+                        // Use class name without .class extension
+                        componentName = classFile.getFileName().toString().replace(".class", "");
                     }
                     return super.visitAnnotation(desc, visible);
                 }
@@ -87,6 +92,7 @@ public class DependencyServiceImpl implements DependencyService {
                 }
             }, 0);
         } catch (IOException e) {
+            logger.warn("Failed to analyze class file: {}", classFile, e);
         }
     }
 }

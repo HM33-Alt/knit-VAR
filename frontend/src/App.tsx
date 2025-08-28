@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const initialNodes = [
   { id: '1', label: 'Service A', x: 100, y: 100 },
@@ -149,6 +149,27 @@ export default function App() {
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [backendStatus, setBackendStatus] = useState<string>('Checking...');
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    const checkBackend = () => {
+      setBackendStatus('Checking...');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+
+      fetch(process.env.REACT_APP_BACKEND_URL + '/api/health', { signal: controller.signal })
+        .then(res => res.text())
+        .then(data => setBackendStatus(data.trim() === "OK" ? 'Connected' : data))
+        .catch(() => setBackendStatus('Error connecting to backend'))
+        .finally(() => clearTimeout(timeout));
+    };
+
+    checkBackend();
+    interval = setInterval(checkBackend, 30000); // every 30s
+
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredNodes = initialNodes.filter(n =>
     n.label.toLowerCase().includes(search.toLowerCase())
@@ -173,6 +194,9 @@ export default function App() {
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
       }}>
         <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: 1 }}>Dependency Visualizer IDE</span>
+        <div style={{ marginLeft: 32, padding: '4px 12px', background: '#e0f7fa', color: '#222', borderRadius: 4, fontWeight: 500 }}>
+          Backend status: {backendStatus}
+        </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>
           <button
             style={{
