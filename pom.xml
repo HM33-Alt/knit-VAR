@@ -29,7 +29,6 @@
 	<properties>
 		<java.version>21</java.version>
 	</properties>
-
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -46,14 +45,15 @@
             <version>9.6</version>
         </dependency>
     </dependencies>
-
 	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.knit_VAR.Application</mainClass>
+                </configuration>
 			</plugin>
 		</plugins>
 	</build>
-
 </project>
