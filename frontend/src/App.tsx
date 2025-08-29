@@ -1,96 +1,181 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const initialNodes = [
-  { id: '1', label: 'Service A', x: 100, y: 100 },
-  { id: '2', label: 'Module B', x: 300, y: 200 },
-];
-const initialEdges = [
-  { id: 'e1-2', source: '1', target: '2', label: 'depends on' },
-];
-
-const nodeDetails: { [key: string]: { issues: string[]; suggestions: string[] } } = {
-  '1': { issues: ['Circular dependency'], suggestions: ['Refactor'] },
-  '2': { issues: [], suggestions: ['Split module'] },
+// Types
+type Node = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  issues: string[];
+  suggestions: string[];
+};
+type Edge = {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  issues: string[];
+  suggestions: string[];
+};
+type DependencyData = {
+  nodes: Node[];
+  edges: Edge[];
 };
 
-type SidebarProps = {
-  selected: string | null;
-  selectedEdge: string | null;
-};
+// Help Modal
+function HelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+      background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+    }}>
+      <div style={{
+        background: '#fff', color: '#222', borderRadius: 8, padding: 32, width: 500, boxShadow: '0 2px 16px rgba(0,0,0,0.2)'
+      }}>
+        <h2>Dependency Visualizer IDE - Help</h2>
+        <ul>
+          <li><strong>Visualize:</strong> Shows dependency graph for Knit-based projects.</li>
+          <li><strong>Issues:</strong> Highlights circular/unnecessary dependencies.</li>
+          <li><strong>Suggestions:</strong> Offers performance/structural improvements.</li>
+          <li><strong>Interaction:</strong> Zoom, pan, drag nodes, click for details.</li>
+          <li><strong>Search:</strong> Filter nodes by name.</li>
+          <li><strong>Docs:</strong> See usage, APIs, assets, libraries here.</li>
+        </ul>
+        <button onClick={onClose} style={{ marginTop: 24, padding: '8px 24px', borderRadius: 4, background: '#00bcd4', color: '#fff', border: 'none', fontWeight: 500 }}>Close</button>
+      </div>
+    </div>
+  );
+}
 
-function Sidebar({ selected, selectedEdge }: SidebarProps) {
+// Sidebar
+function Sidebar({ selectedNode, selectedEdge }: { selectedNode: Node | null; selectedEdge: Edge | null }) {
   if (selectedEdge) {
-    const edge = initialEdges.find(e => e.id === selectedEdge);
-    const source = initialNodes.find(n => n.id === edge?.source);
-    const target = initialNodes.find(n => n.id === edge?.target);
     return (
       <div>
         <h3>Edge Details</h3>
         <div>
-          <strong>{source?.label}</strong> <span style={{ color: '#00bcd4' }}>{edge?.label}</span> <strong>{target?.label}</strong>
+          <strong>{selectedEdge.label}</strong>
+        </div>
+        <div>
+          <strong>Issues:</strong>
+          <ul>
+            {selectedEdge.issues.length ? selectedEdge.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
+          </ul>
+        </div>
+        <div>
+          <strong>Suggestions:</strong>
+          <ul>
+            {selectedEdge.suggestions.length ? selectedEdge.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
+          </ul>
         </div>
       </div>
     );
   }
-  if (!selected) return <div>Select a node or edge to see details.</div>;
-  const details = nodeDetails[selected];
-  const node = initialNodes.find(n => n.id === selected);
+  if (!selectedNode) return <div>Select a node or edge to see details.</div>;
   return (
     <div>
-      <h3>Details for {node?.label}</h3>
+      <h3>Details for {selectedNode.label}</h3>
       <div>
         <strong>Issues:</strong>
         <ul>
-          {details.issues.length ? details.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
+          {selectedNode.issues.length ? selectedNode.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
         </ul>
       </div>
       <div>
         <strong>Suggestions:</strong>
         <ul>
-          {details.suggestions.length ? details.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
+          {selectedNode.suggestions.length ? selectedNode.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
         </ul>
       </div>
     </div>
   );
 }
 
+// Dependency Graph with zoom/pan/drag
 function DependencyGraph({
   nodes,
   edges,
-  selected,
-  selectedEdge,
-  setSelected,
-  setSelectedEdge,
+  selectedNodeId,
+  selectedEdgeId,
+  setSelectedNodeId,
+  setSelectedEdgeId,
   theme,
 }: {
-  nodes: typeof initialNodes;
-  edges: typeof initialEdges;
-  selected: string | null;
-  selectedEdge: string | null;
-  setSelected: (id: string | null) => void;
-  setSelectedEdge: (id: string | null) => void;
+  nodes: Node[];
+  edges: Edge[];
+  selectedNodeId: string | null;
+  selectedEdgeId: string | null;
+  setSelectedNodeId: (id: string | null) => void;
+  setSelectedEdgeId: (id: string | null) => void;
   theme: 'dark' | 'light';
 }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 600 });
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  // Zoom/pan handlers
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 0.9 : 1.1;
+    setViewBox(vb => ({
+      x: vb.x * factor,
+      y: vb.y * factor,
+      w: vb.w * factor,
+      h: vb.h * factor,
+    }));
+  };
+
+  // Drag node handlers
+  const handleMouseDown = (id: string, e: React.MouseEvent) => {
+    setDragging(id);
+    setOffset({ x: e.clientX, y: e.clientY });
+  };
+  const handleMouseUp = () => setDragging(null);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (dragging) {
+      const dx = e.clientX - offset.x;
+      const dy = e.clientY - offset.y;
+      const node = nodes.find(n => n.id === dragging);
+      if (node) {
+        node.x += dx;
+        node.y += dy;
+        setOffset({ x: e.clientX, y: e.clientY });
+      }
+    }
+  };
+
   const nodeColor = theme === 'dark' ? '#263238' : '#e0f7fa';
   const edgeColor = theme === 'dark' ? '#00bcd4' : '#00796b';
   const textColor = theme === 'dark' ? '#fff' : '#222';
 
   return (
-    <svg width={400} height={300} style={{ background: theme === 'dark' ? '#282c34' : '#f5f7fa', borderRadius: 8 }}>
+    <svg
+      ref={svgRef}
+      width={800}
+      height={600}
+      viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
+      style={{ background: theme === 'dark' ? '#282c34' : '#f5f7fa', borderRadius: 8, cursor: dragging ? 'grabbing' : 'default' }}
+      onWheel={handleWheel}
+      onMouseUp={handleMouseUp}
+      onMouseMove={handleMouseMove}
+    >
       {/* Edges */}
       {edges.map(edge => {
         const source = nodes.find(n => n.id === edge.source);
         const target = nodes.find(n => n.id === edge.target);
         if (!source || !target) return null;
+        const hasIssue = edge.issues.length > 0;
         return (
-          <g key={edge.id} onClick={() => { setSelectedEdge(edge.id); setSelected(null); }} style={{ cursor: 'pointer' }}>
+          <g key={edge.id} onClick={() => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }} style={{ cursor: 'pointer' }}>
             <line
               x1={source.x}
               y1={source.y}
               x2={target.x}
               y2={target.y}
-              stroke={selectedEdge === edge.id ? '#ff9800' : edgeColor}
-              strokeWidth={selectedEdge === edge.id ? 4 : 2}
+              stroke={selectedEdgeId === edge.id ? '#ff9800' : hasIssue ? '#e53935' : edgeColor}
+              strokeWidth={selectedEdgeId === edge.id ? 4 : 2}
               markerEnd="url(#arrowhead)"
             />
             <text
@@ -102,32 +187,46 @@ function DependencyGraph({
             >
               {edge.label}
             </text>
+            {hasIssue && (
+              <circle cx={(source.x + target.x) / 2} cy={(source.y + target.y) / 2} r={8} fill="#e53935" />
+            )}
           </g>
         );
       })}
       {/* Nodes */}
-      {nodes.map(node => (
-        <g key={node.id} onClick={() => { setSelected(node.id); setSelectedEdge(null); }} style={{ cursor: 'pointer' }}>
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={28}
-            fill={selected === node.id ? '#ff9800' : nodeColor}
-            stroke={selected === node.id ? '#ff9800' : edgeColor}
-            strokeWidth={selected === node.id ? 4 : 2}
-          />
-          <text
-            x={node.x}
-            y={node.y + 5}
-            fill={textColor}
-            fontSize={14}
-            textAnchor="middle"
-            fontWeight="bold"
+      {nodes.map(node => {
+        const hasIssue = node.issues.length > 0;
+        return (
+          <g
+            key={node.id}
+            onClick={() => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
+            onMouseDown={e => handleMouseDown(node.id, e)}
+            style={{ cursor: 'pointer' }}
           >
-            {node.label}
-          </text>
-        </g>
-      ))}
+            <circle
+              cx={node.x}
+              cy={node.y}
+              r={28}
+              fill={selectedNodeId === node.id ? '#ff9800' : hasIssue ? '#e53935' : nodeColor}
+              stroke={selectedNodeId === node.id ? '#ff9800' : edgeColor}
+              strokeWidth={selectedNodeId === node.id ? 4 : 2}
+            />
+            <text
+              x={node.x}
+              y={node.y + 5}
+              fill={textColor}
+              fontSize={14}
+              textAnchor="middle"
+              fontWeight="bold"
+            >
+              {node.label}
+            </text>
+            {hasIssue && (
+              <circle cx={node.x + 22} cy={node.y - 22} r={8} fill="#e53935" />
+            )}
+          </g>
+        );
+      })}
       <defs>
         <marker
           id="arrowhead"
@@ -145,12 +244,23 @@ function DependencyGraph({
 }
 
 export default function App() {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
+  const [data, setData] = useState<DependencyData>({ nodes: [], edges: [] });
+  const [helpOpen, setHelpOpen] = useState(false);
 
+  // Fetch dependency data
+  useEffect(() => {
+    fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
+      .then(res => res.json())
+      .then(setData)
+      .catch(() => setData({ nodes: [], edges: [] }));
+  }, []);
+
+  // Backend health check
   useEffect(() => {
     let interval: NodeJS.Timeout;
     const checkBackend = () => {
@@ -166,14 +276,16 @@ export default function App() {
     };
 
     checkBackend();
-    interval = setInterval(checkBackend, 30000); // every 30s
+    interval = setInterval(checkBackend, 30000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const filteredNodes = initialNodes.filter(n =>
+  const filteredNodes = data.nodes.filter(n =>
     n.label.toLowerCase().includes(search.toLowerCase())
   );
+  const selectedNode = data.nodes.find(n => n.id === selectedNodeId) || null;
+  const selectedEdge = data.edges.find(e => e.id === selectedEdgeId) || null;
 
   const bgColor = theme === 'dark' ? '#23272e' : '#f5f7fa';
   const sidebarBg = theme === 'dark' ? '#20232a' : '#fff';
@@ -208,6 +320,13 @@ export default function App() {
               cursor: 'pointer',
               fontWeight: 500
             }}
+            onClick={() => {
+              // Re-run analysis
+              fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
+                .then(res => res.json())
+                .then(setData)
+                .catch(() => setData({ nodes: [], edges: [] }));
+            }}
           >Run Analysis</button>
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -222,6 +341,20 @@ export default function App() {
             }}
           >
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
+          <button
+            onClick={() => setHelpOpen(true)}
+            style={{
+              background: '#fff',
+              color: '#00bcd4',
+              border: '1px solid #00bcd4',
+              borderRadius: 4,
+              padding: '6px 16px',
+              cursor: 'pointer',
+              fontWeight: 500
+            }}
+          >
+            Help
           </button>
         </div>
       </div>
@@ -258,8 +391,8 @@ export default function App() {
                 key={node.id}
                 style={{
                   cursor: 'pointer',
-                  fontWeight: selected === node.id ? 'bold' : 'normal',
-                  background: selected === node.id ? (theme === 'dark' ? '#263238' : '#e0f7fa') : undefined,
+                  fontWeight: selectedNodeId === node.id ? 'bold' : 'normal',
+                  background: selectedNodeId === node.id ? (theme === 'dark' ? '#263238' : '#e0f7fa') : undefined,
                   padding: '6px 10px',
                   borderRadius: 4,
                   marginBottom: 4,
@@ -267,15 +400,15 @@ export default function App() {
                   color: textColor
                 }}
                 onClick={() => {
-                  setSelected(node.id);
-                  setSelectedEdge(null);
+                  setSelectedNodeId(node.id);
+                  setSelectedEdgeId(null);
                 }}
               >
                 {node.label}
               </li>
             ))}
           </ul>
-          <Sidebar selected={selected} selectedEdge={selectedEdge} />
+          <Sidebar selectedNode={selectedNode} selectedEdge={selectedEdge} />
         </div>
         {/* Main Panel */}
         <div style={{
@@ -288,40 +421,43 @@ export default function App() {
         }}>
           <h3 style={{ color: '#00bcd4', marginBottom: 16 }}>Edges</h3>
           <ul>
-            {initialEdges.map(edge => (
+            {data.edges.map(edge => (
               <li
                 key={edge.id}
                 style={{
                   cursor: 'pointer',
-                  background: selectedEdge === edge.id ? (theme === 'dark' ? '#263238' : '#e0f7fa') : undefined,
+                  background: selectedEdgeId === edge.id ? (theme === 'dark' ? '#263238' : '#e0f7fa') : undefined,
                   padding: '6px 10px',
                   borderRadius: 4,
                   marginBottom: 4,
                   transition: 'background 0.2s',
-                  color: textColor
+                  color: textColor,
+                  fontWeight: edge.issues.length ? 'bold' : 'normal'
                 }}
                 onClick={() => {
-                  setSelectedEdge(edge.id);
-                  setSelected(null);
+                  setSelectedEdgeId(edge.id);
+                  setSelectedNodeId(null);
                 }}
               >
-                {initialNodes.find(n => n.id === edge.source)?.label} &rarr; {initialNodes.find(n => n.id === edge.target)?.label} ({edge.label})
+                {data.nodes.find(n => n.id === edge.source)?.label} &rarr; {data.nodes.find(n => n.id === edge.target)?.label} ({edge.label})
+                {edge.issues.length > 0 && <span style={{ color: '#e53935', marginLeft: 8 }}>⚠️</span>}
               </li>
             ))}
           </ul>
           <div style={{ marginTop: 32 }}>
             <DependencyGraph
-              nodes={initialNodes}
-              edges={initialEdges}
-              selected={selected}
-              selectedEdge={selectedEdge}
-              setSelected={setSelected}
-              setSelectedEdge={setSelectedEdge}
+              nodes={data.nodes}
+              edges={data.edges}
+              selectedNodeId={selectedNodeId}
+              selectedEdgeId={selectedEdgeId}
+              setSelectedNodeId={setSelectedNodeId}
+              setSelectedEdgeId={setSelectedEdgeId}
               theme={theme}
             />
           </div>
         </div>
       </div>
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
