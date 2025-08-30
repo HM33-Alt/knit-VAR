@@ -4,13 +4,14 @@ import { HelpModal } from './HelpModal';
 import { Sidebar } from './Sidebar';
 import { DependencyGraph } from './DependencyGraph';
 import { DependencyData, Node, Edge } from './types';
+import { demoDependencyData } from './demoDependencyData';
 
 export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [data, setData] = useState<DependencyData>({ nodes: [], edges: [] });
+  const [data, setData] = useState<DependencyData>(demoDependencyData);
   const [helpOpen, setHelpOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'warning' | 'critical'>('all');
   const svgRef = useRef<SVGSVGElement>(null);
@@ -282,8 +283,8 @@ export default function App() {
                 const startY = 500 - (Math.floor((processedData.nodes.length - 1) / columns) / 2) * spacingY;
                 const positionedNodes = processedData.nodes.map((node, idx) => ({
                   ...node,
-                  x: node.x ?? startX + (idx % columns) * spacingX,
-                  y: node.y ?? startY + Math.floor(idx / columns) * spacingY,
+                  x: node.x ?? 100 + (idx % columns) * spacingX,
+                  y: node.y ?? 100 + Math.floor(idx / columns) * spacingY,
                 }));
                 setData({ ...processedData, nodes: positionedNodes });
               }}
