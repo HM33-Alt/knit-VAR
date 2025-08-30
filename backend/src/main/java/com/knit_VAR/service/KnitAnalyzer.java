@@ -1,4 +1,3 @@
-// backend/src/main/java/com/knit_VAR/service/KnitAnalyzer.java
 package com.knit_VAR.service;
 
 import com.knit_VAR.model.KnitAnalysisResult;
