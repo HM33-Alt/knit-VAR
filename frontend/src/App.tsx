@@ -92,7 +92,7 @@ function Sidebar({ selectedNode, selectedEdge }: { selectedNode: Node | null; se
   );
 }
 
-// Dependency Graph with zoom/pan/drag
+// Dependency Graph with zoom/pan/drag and hover effects
 function DependencyGraph({
   nodes,
   edges,
@@ -114,6 +114,8 @@ function DependencyGraph({
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 600 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
   // Zoom/pan handlers
   const handleWheel = (e: React.WheelEvent) => {
@@ -168,14 +170,34 @@ function DependencyGraph({
         if (!source || !target) return null;
         const hasIssue = edge.issues.length > 0;
         return (
-          <g key={edge.id} onClick={() => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }} style={{ cursor: 'pointer' }}>
+          <g
+            key={edge.id}
+            onClick={() => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
+            onMouseEnter={() => setHoveredEdgeId(edge.id)}
+            onMouseLeave={() => setHoveredEdgeId(null)}
+            style={{ cursor: 'pointer' }}
+          >
             <line
               x1={source.x}
               y1={source.y}
               x2={target.x}
               y2={target.y}
-              stroke={selectedEdgeId === edge.id ? '#ff9800' : hasIssue ? '#e53935' : edgeColor}
-              strokeWidth={selectedEdgeId === edge.id ? 4 : 2}
+              stroke={
+                hoveredEdgeId === edge.id
+                  ? '#00bcd4'
+                  : selectedEdgeId === edge.id
+                  ? '#ff9800'
+                  : hasIssue
+                  ? '#e53935'
+                  : edgeColor
+              }
+              strokeWidth={
+                hoveredEdgeId === edge.id
+                  ? 5
+                  : selectedEdgeId === edge.id
+                  ? 4
+                  : 2
+              }
               markerEnd="url(#arrowhead)"
             />
             <text
@@ -201,15 +223,37 @@ function DependencyGraph({
             key={node.id}
             onClick={() => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
             onMouseDown={e => handleMouseDown(node.id, e)}
+            onMouseEnter={() => setHoveredNodeId(node.id)}
+            onMouseLeave={() => setHoveredNodeId(null)}
             style={{ cursor: 'pointer' }}
           >
             <circle
               cx={node.x}
               cy={node.y}
               r={28}
-              fill={selectedNodeId === node.id ? '#ff9800' : hasIssue ? '#e53935' : nodeColor}
-              stroke={selectedNodeId === node.id ? '#ff9800' : edgeColor}
-              strokeWidth={selectedNodeId === node.id ? 4 : 2}
+              fill={
+                hoveredNodeId === node.id
+                  ? '#00bcd4'
+                  : selectedNodeId === node.id
+                  ? '#ff9800'
+                  : hasIssue
+                  ? '#e53935'
+                  : nodeColor
+              }
+              stroke={
+                hoveredNodeId === node.id
+                  ? '#00bcd4'
+                  : selectedNodeId === node.id
+                  ? '#ff9800'
+                  : edgeColor
+              }
+              strokeWidth={
+                hoveredNodeId === node.id
+                  ? 5
+                  : selectedNodeId === node.id
+                  ? 4
+                  : 2
+              }
             />
             <text
               x={node.x}
