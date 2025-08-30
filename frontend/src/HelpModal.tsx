@@ -1,3 +1,8 @@
+/**
+ * Portions of this file may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
+ */
+
 import React from 'react';
 
 // Static list of Knit dependency principles to show in the modal
