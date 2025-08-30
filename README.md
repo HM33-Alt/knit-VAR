@@ -1,71 +1,119 @@
-# Knit-VAR - 5. Visualising Architecture with Knit
+# Knit-VAR
+### Tiktok TechJam 2025 Challenge - **5. Visualising Architecture with Knit**
+
+A web-based tool to visualize and analyze dependencies in Kotlin Knit-based projects.  
+The tool highlights potential issues, provides suggestions for improvement, and allows interactive exploration of project dependencies.
+
+---
+
+## Features
+
+- **Interactive Dependency Graph**: Visualizes nodes (modules/services) and edges (dependencies) in an intuitive graph layout.
+- **Issue Detection**:
+  - Circular dependency detection
+  - Unused dependency detection
+  - Version conflict identification
+- **Suggestions & Improvements**: Provides actionable recommendations for refactoring or performance enhancements.
+- **Graph Enhancements**:
+  - Node color coding based on severity (`default`, `warning`, `critical`)
+  - Adjustable edge thickness
+  - Zoom and pan interactions
+  - Node and edge filtering
+- **Export Options**: Export graph data in JSON or CSV formats, and export the visual graph as SVG.
+- **Demo/Test Data**: Built-in sample data to showcase features without requiring a Knit project.
+
+> **Screenshot Placeholder:**  
+> ![Graph Screenshot](./assets/screenshot_graph.png)
+
+---
 
 ## Problem Statement
-Develop a visualization tool for TikTok's open-source dependency injection framework, Knit, that helps developers better understand, analyze, and optimize their projects' dependency structures. This tool should offer clear, intuitive visual representations of dependency graphs, highlight potential issues such as circular or unnecessary dependencies, and provide suggestions for performance or structural improvements.
-Knit delivers excellent performance through its unique bytecode manipulation approach. Without visibility, issues may go undetected, leading to tightly coupled code, inefficiencies, and slower onboarding for new contributors. 
-By building a dedicated visualization tool, this track aims to make dependency relationships in Knit-based projects more transparent and actionable, ultimately improving code quality, maintainability, and developer productivity.
-We welcome you to leverage AI to help you to understand the DI definition or the principle of the Knit framework and build your visualization tools (e.g. build with Trae)
+
+Understanding and managing dependencies in large Kotlin projects can be challenging. Circular dependencies, unused modules, and transitive issues often reduce maintainability and increase the risk of bugs.  
+This tool provides a clear, actionable visualization of dependency relationships, enabling developers to identify and resolve issues quickly.
+
+> **Screenshot Placeholder:**  
+> ![Issue Detection Example](./assets/screenshot_issues.png)
 
 ---
 
-## Suggested visualization methods
-1. A web page with a user-friendly interface and good user experience.
-2. A terminal UI that can display dependencies and interact with user input
-3. An IDE plugin that can interact with real production code.
-4. Any other creative & effective methods :)
+## Development Tools
+
+- **Frontend**: React, TypeScript
+- **Backend**: Node.js (file uploads and server-side analysis)
+- **IDE**: IntelliJ
+- **Version Control**: GitHub & SourceTree
 
 ---
 
-## Background
-Dependency injection (DI) is a crucial design pattern in modern software development, especially for large-scale applications. It promotes loose coupling, testability, and maintainability by providing objects with their dependencies rather than having them create or find dependencies themselves. As applications grow, managing these dependencies becomes increasingly complex and difficult to track.
-Knit is TikTok's open-source dependency injection framework for JVM platforms, including Android. Unlike other DI frameworks such as Dagger or Koin, Knit uses a unique approach by directly modifying bytecode to inject dependencies without generating intermediate proxy. This results in better performance and cleaner code, with dependency injection that performs comparably to hand-written code.
-As Knit continues to evolve and support more complex use cases, there's a growing need for tooling that supports deeper visibility into how dependencies are wired and interact, especially for large or rapidly changing projects.
+## Libraries & APIs Used
+
+- **React** – Frontend UI framework
+- **TypeScript** – Type safety for the frontend
+- **D3.js / SVG** – Interactive graph visualization
+- **Fetch API** – File upload and backend communication
+- **Knit Dependency Analysis** – Custom JS/TS module (`analyzeDependencies.ts`) for detecting cycles, unnecessary dependencies, and generating suggestions
 
 ---
 
-## Task Requirements
-Participants should have:
-- Basic software engineering knowledge and experience with Java or Kotlin development
-- Familiarity with IDE usage (experience with IntelliJ IDEA is preferred)
+## Assets
 
-The following knowledge would be beneficial but is not mandatory:
-- Understanding of dependency injection concepts
-- Experience with visualization libraries or frameworks
-- Knowledge of JVM bytecode and ASM (Java bytecode manipulation and analysis framework)
+- Demo/test dataset (`demoDependencyData.ts`) for showcasing graph features
+- Icons for warnings/circular dependencies (inline SVG/emoji used)
+- No third-party copyrighted material included
 
 ---
 
-## Deliverables
-1. Provide the source code of the visualization tool with documentation
-2. Include a text description that should explain the features and functionality of the project, and also include:
-  - Development tools used to build the project
-  - APIs used in the project
-  - Assets used in the project
-  - Libraries used in the project
-  - The relevant problem statement 
-  - Explanation of how to use the tool's feature
-3. Include a link to the team's public Github repository with Readme
-4. Include a demonstration video of the project. The video portion of the submission:
-  - should be less than three (3) minutes
-  - should include footage that shows the project functioning on the device for which it was built
-  - must be uploaded to and made publicly visible on YouTube, and a link to the video must be provided in the text description; and
-  - must not include third party trademarks, or copyrighted music or other material unless the Entrant has permission to use such material.
+## Usage
+
+1. ** Setup **
+    * Clone the repository and install dependencies using `npm install`.
+    * Start the development server with `npm start`.
+    * Open `http://localhost:3000` in your browser.
+   
+2. **Upload a Kotlin `.kt` file** (optional)
+
+    * The tool parses dependencies and displays them in the graph.
+
+3. **Interact with the Graph**
+
+    * Click nodes to view details and suggestions in the sidebar.
+    * Click edges to inspect dependencies and issues.
+    * Use the search bar to filter nodes.
+    * Zoom and pan for better visibility of large graphs.
+
+4. **Export Options**
+
+    * Export CSV/JSON of nodes and edges.
+    * Export the graph visualization as SVG.
+
+5. **Demo Data**
+
+    * If no file is uploaded, the tool loads `demoDependencyData` to demonstrate features.
+
+> **GIF Placeholder:**  
+> ![Demo GIF](./assets/demo.gif)
 
 ---
 
-## Optional UI Challenge: Building UI for the AI Era with Lynx
-While optional, participants are invited to use Lynx for building the user interface (UI) of your project. 
-Lynx is a family of cross-platform technologies which allows developers to build native UIs for iOS, Android, and Web all from a single codebase using familiar Web technologies like markups, CSS and React-style declarative JavaScript, offering not only productivity gains, but also an ideal foundation for AI systems to generate, interpret and interact with.
-Doing so would mean that you are competing in 2 tracks; the core problem statement here and the UI challenge. You will also be evaluated by 2 sets of judges. It's double the challenge and double the opportunity to be picked as a finalist in the TechJam!
+## Repository
+[GitHub Repository](https://github.com/your-username/knit-dependency-visualizer)
 
 ---
 
-## Definitions
-- Dependency Injection: A programming technique in which an object or function receives other objects or functions that it requires, as opposed to creating them internally. A youtube video is recommended for that https://youtu.be/J1f5b4vcxCQ
-- JVM Bytecode: Java or other JVM platform code is usually stored in bytecode format and executed through the JRE (Java Runtime Environment). ASM is a Java bytecode manipulation and analysis framework, and it is used for analyzing bytecode and generating the Knit modified bytecode.
+## Demonstration Video
+Watch the project in action on YouTube:  
+[![Knit Dependency Visualizer Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+* Duration: < 3 minutes
+* Showcases interactive graph, issue detection, and export features
 
 ---
 
-## Resources
-- Knit GitHub repository: https://github.com/tiktok/knit (Documentation and examples are included in this repository.)
-- IntelliJ Platform Plugin SDK if you want to create any Intellij plugins as a visual form https://plugins.jetbrains.com/docs/intellij/welcome.html
+## License
+MIT License
+
+---
+
+## Acknowledgements
+* Inspired by challenges in dependency management for Kotlin Knit projects.
+* Visualization ideas inspired by network graph tools.
