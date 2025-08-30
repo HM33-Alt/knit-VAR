@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * scanned and initialized by Spring Boot.
  *
  * Portions of this code may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
  */
 @SpringBootApplication
 public class Application {
