@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
  * dependencies, errors, and suggestions.
  *
  * Portions of this code may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
  */
 @Service
 public class KnitAnalyzer {
