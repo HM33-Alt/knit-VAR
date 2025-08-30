@@ -1,3 +1,8 @@
+/**
+ * Portions of this file may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
+ */
+
 import React, { useState, useRef } from 'react';
 import { KnitUpload } from './KnitUpload';
 import { HelpModal } from './HelpModal';
