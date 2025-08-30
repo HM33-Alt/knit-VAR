@@ -28,6 +28,22 @@ export function DependencyGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
+  // --- assign default coordinates and issues ---
+  const nodesWithCoords = nodes.map((n, i) => ({
+    ...n,
+    x: n.x ?? (100 + (i % 5) * 200),
+    y: n.y ?? (100 + Math.floor(i / 5) * 200),
+    issues: n.issues ?? [],
+    suggestions: n.suggestions ?? []
+  }));
+
+  const edgesWithDefaults = edges.map(e => ({
+    ...e,
+    label: e.label ?? 'depends on',
+    issues: e.issues ?? [],
+    suggestions: e.suggestions ?? []
+  }));
+
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 0.9 : 1.1;
@@ -75,9 +91,9 @@ export function DependencyGraph({
       onMouseMove={handleMouseMove}
     >
       {/* Edges */}
-      {edges.map(edge => {
-        const source = nodes.find(n => n.id === edge.source);
-        const target = nodes.find(n => n.id === edge.target);
+      {edgesWithDefaults.map(edge => {
+        const source = nodesWithCoords.find(n => n.id === edge.source);
+        const target = nodesWithCoords.find(n => n.id === edge.target);
         if (!source || !target) return null;
         const hasIssue = edge.issues.length > 0;
         return (
@@ -88,12 +104,6 @@ export function DependencyGraph({
             onClick={() => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
             onMouseEnter={() => setHoveredEdgeId(edge.id)}
             onMouseLeave={() => setHoveredEdgeId(null)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                setSelectedEdgeId(edge.id);
-                setSelectedNodeId(null);
-              }
-            }}
             style={{ cursor: 'pointer', outline: selectedEdgeId === edge.id ? '2px solid #00bcd4' : 'none' }}
           >
             <line
@@ -136,7 +146,7 @@ export function DependencyGraph({
         );
       })}
       {/* Nodes */}
-      {nodes.map(node => {
+      {nodesWithCoords.map(node => {
         const hasIssue = node.issues.length > 0;
         return (
           <g
@@ -147,12 +157,6 @@ export function DependencyGraph({
             onMouseDown={e => handleMouseDown(node.id, e)}
             onMouseEnter={() => setHoveredNodeId(node.id)}
             onMouseLeave={() => setHoveredNodeId(null)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                setSelectedNodeId(node.id);
-                setSelectedEdgeId(null);
-              }
-            }}
             style={{ cursor: 'pointer', outline: selectedNodeId === node.id ? '2px solid #00bcd4' : 'none' }}
           >
             <circle

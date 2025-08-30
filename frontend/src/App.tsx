@@ -1,7 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { testDependencyData } from './testDependencyData';
 import { KnitUpload } from './KnitUpload';
-import { analyzeDependencies } from './analyzeDependencies';
 import { HelpModal } from './HelpModal';
 import { Sidebar } from './Sidebar';
 import { DependencyGraph } from './DependencyGraph';
@@ -14,73 +12,41 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [data, setData] = useState<DependencyData>({ nodes: [], edges: [] });
   const [helpOpen, setHelpOpen] = useState(false);
-  const [dataSource, setDataSource] = useState<'live' | 'test'>('live');
-  const [testData, setTestData] = useState<DependencyData>(
-    analyzeDependencies(testDependencyData)
-  );
   const svgRef = useRef<SVGSVGElement>(null);
 
   const handleUpdateNode = async (updatedNode: Node) => {
-    if (dataSource === 'test') {
-      setData(prev => {
-        const newData = {
-          ...prev,
-          nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
-        };
-        setTestData(newData);
-        return newData;
+    setData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
+    }));
+
+    try {
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/nodes/${updatedNode.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedNode)
       });
-    } else {
-      setData(prev => ({
-        ...prev,
-        nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
-      }));
-      try {
-        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/nodes/${updatedNode.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedNode)
-        });
-      } catch (e) {}
-    }
+    } catch {}
   };
 
   const handleUpdateEdge = async (updatedEdge: Edge) => {
-    if (dataSource === 'test') {
-      setData(prev => {
-        const newData = {
-          ...prev,
-          edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
-        };
-        setTestData(newData);
-        return newData;
+    setData(prev => ({
+      ...prev,
+      edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
+    }));
+
+    try {
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/edges/${updatedEdge.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedEdge)
       });
-    } else {
-      setData(prev => ({
-        ...prev,
-        edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
-      }));
-      try {
-        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/edges/${updatedEdge.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedEdge)
-        });
-      } catch (e) {}
-    }
+    } catch {}
+  };
+  const handleSetData = (updater: React.SetStateAction<DependencyData>) => {
+    setData(updater);
   };
 
-  const handleSetData = (updater: React.SetStateAction<DependencyData>) => {
-    if (dataSource === 'test') {
-      setData(prev => {
-        const newData = typeof updater === 'function' ? (updater as (prev: DependencyData) => DependencyData)(prev) : updater;
-        setTestData(newData);
-        return newData;
-      });
-    } else {
-      setData(updater);
-    }
-  };
 
   const filteredNodes = data.nodes.filter(n =>
     n.label.toLowerCase().includes(search.toLowerCase())
@@ -130,44 +96,7 @@ export default function App() {
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
       }}>
         <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: 1 }}>Dependency Visualizer IDE</span>
-        <select
-          value={dataSource}
-          onChange={e => setDataSource(e.target.value as 'live' | 'test')}
-          style={{ marginLeft: 16, padding: '6px 12px', borderRadius: 4 }}
-        >
-          <option value="live">Live Data</option>
-          <option value="test">Test Data</option>
-        </select>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>
-          <button
-            style={{
-              background: '#00bcd4',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 4,
-              padding: '6px 16px',
-              cursor: 'pointer',
-              fontWeight: 500
-            }}
-            onClick={() => {
-              if (dataSource === 'test') {
-                setData(testData);
-              } else {
-                fetch('http://localhost:8080/api/dependencies')
-                  .then(res => res.json())
-                  .then(rawData => {
-                    const processedData = analyzeDependencies(rawData);
-                    const positionedNodes = processedData.nodes.map((node, idx) => ({
-                      ...node,
-                      x: 100 + idx * 120,
-                      y: 200
-                    }));
-                    setData({ ...processedData, nodes: positionedNodes });
-                  })
-                  .catch(() => setData({ nodes: [], edges: [] }));
-              }
-            }}
-          >Run Analysis</button>
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             style={{
@@ -279,7 +208,25 @@ export default function App() {
           overflowY: 'auto'
         }}>
           <div style={{ marginBottom: 24 }}>
-              <KnitUpload />
+            <KnitUpload
+              onDataLoaded={(processedData) => {
+                const columns = 5; // nodes per row
+                const spacingX = 200;
+                const spacingY = 200;
+
+                // calculate starting point to center nodes
+                const startX = 800 - ((Math.min(processedData.nodes.length, columns) - 1) / 2) * spacingX;
+                const startY = 500 - (Math.floor((processedData.nodes.length - 1) / columns) / 2) * spacingY;
+
+                const positionedNodes = processedData.nodes.map((node, idx) => ({
+                  ...node,
+                  x: node.x ?? startX + (idx % columns) * spacingX,
+                  y: node.y ?? startY + Math.floor(idx / columns) * spacingY,
+                }));
+
+                setData({ ...processedData, nodes: positionedNodes });
+              }}
+            />
           </div>
           <h3 style={{ color: '#00bcd4', marginBottom: 16 }}>Edges</h3>
           <ul>
