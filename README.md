@@ -124,4 +124,4 @@ MIT License
 ---
 
 ## Acknowledgements
-* Some parts of the code in this project were assisted by GitHub Copilot. Provided suggestions were reviewed, modified, and integrated by myself (solo developer/entrant).
+* Parts of the code in this project were assisted by GitHub Copilot. Provided suggestions were reviewed, modified, and integrated by myself (solo developer/entrant).
