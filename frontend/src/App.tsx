@@ -22,6 +22,95 @@ type DependencyData = {
   edges: Edge[];
 };
 
+// --- Analysis Logic ---
+function analyzeDependencies(data: DependencyData): DependencyData {
+  // Detect cycles using DFS
+  const cycles: string[][] = [];
+  const visited: Record<string, boolean> = {};
+  const stack: string[] = [];
+  function dfs(nodeId: string) {
+    if (stack.includes(nodeId)) {
+      const cycleStart = stack.indexOf(nodeId);
+      cycles.push([...stack.slice(cycleStart), nodeId]);
+      return;
+    }
+    if (visited[nodeId]) return;
+    visited[nodeId] = true;
+    stack.push(nodeId);
+    data.edges.filter(e => e.source === nodeId).forEach(e => dfs(e.target));
+    stack.pop();
+  }
+  data.nodes.forEach(n => {
+    Object.keys(visited).forEach(k => (visited[k] = false));
+    dfs(n.id);
+  });
+
+  // Mark cycles in edges
+  const edgeIssues: Record<string, string[]> = {};
+  cycles.forEach(cycle => {
+    for (let i = 0; i < cycle.length - 1; i++) {
+      const edge = data.edges.find(e => e.source === cycle[i] && e.target === cycle[i + 1]);
+      if (edge) {
+        edgeIssues[edge.id] = edgeIssues[edge.id] || [];
+        edgeIssues[edge.id].push('Circular dependency');
+      }
+    }
+  });
+
+  // Mark unnecessary edges (not on any shortest path)
+  const necessaryEdges = new Set<string>();
+  data.nodes.forEach(start => {
+    const queue: { id: string; path: string[] }[] = [{ id: start.id, path: [] }];
+    const visited: Record<string, boolean> = {};
+    while (queue.length) {
+      const { id, path } = queue.shift()!;
+      if (visited[id]) continue;
+      visited[id] = true;
+      data.edges.filter(e => e.source === id).forEach(e => {
+        necessaryEdges.add(e.id);
+        queue.push({ id: e.target, path: path.concat([e.id]) });
+      });
+    }
+  });
+  data.edges.forEach(e => {
+    if (!necessaryEdges.has(e.id)) {
+      edgeIssues[e.id] = edgeIssues[e.id] || [];
+      edgeIssues[e.id].push('Unnecessary edge');
+    }
+  });
+
+  // Suggestions: Group nodes with many shared dependencies
+    const suggestionsByNode: Record<string, string[]> = {};
+    data.nodes.forEach(node => {
+      const outgoing = data.edges.filter(e => e.source === node.id).map(e => e.target);
+      if (outgoing.length > 3) {
+        suggestionsByNode[node.id] = [`Consider grouping ${outgoing.length} dependencies.`];
+      }
+    });
+
+    // Suggestions: Remove unnecessary edges
+    const suggestionsByEdge: Record<string, string[]> = {};
+    data.edges.forEach(e => {
+      if (e.issues.includes('Unnecessary edge')) {
+        suggestionsByEdge[e.id] = ['Remove unnecessary edge for clarity/performance.'];
+      }
+    });
+
+    // Update issues and suggestions in nodes/edges
+    return {
+      nodes: data.nodes.map(n => ({
+        ...n,
+        issues: cycles.some(cycle => cycle.includes(n.id)) ? ['Part of cycle'] : [],
+        suggestions: suggestionsByNode[n.id] || [],
+      })),
+      edges: data.edges.map(e => ({
+        ...e,
+        issues: edgeIssues[e.id] || [],
+        suggestions: suggestionsByEdge[e.id] || [],
+      })),
+    };
+}
+
 // Help Modal
 function HelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!open) return null;
@@ -49,26 +138,55 @@ function HelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 // Sidebar
-function Sidebar({ selectedNode, selectedEdge }: { selectedNode: Node | null; selectedEdge: Edge | null }) {
+function Sidebar({
+  selectedNode,
+  selectedEdge,
+  onUpdateNode,
+  onUpdateEdge
+}: {
+  selectedNode: Node | null;
+  selectedEdge: Edge | null;
+  onUpdateNode: (node: Node) => void;
+  onUpdateEdge: (edge: Edge) => void;
+}) {
+  const [editMode, setEditMode] = useState(false);
+  const [label, setLabel] = useState('');
+
+  useEffect(() => {
+    setLabel(selectedNode?.label || selectedEdge?.label || '');
+    setEditMode(false);
+  }, [selectedNode, selectedEdge]);
+
   if (selectedEdge) {
     return (
       <div>
         <h3>Edge Details</h3>
-        <div>
-          <strong>{selectedEdge.label}</strong>
-        </div>
-        <div>
-          <strong>Issues:</strong>
-          <ul>
-            {selectedEdge.issues.length ? selectedEdge.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
-          </ul>
-        </div>
-        <div>
-          <strong>Suggestions:</strong>
-          <ul>
-            {selectedEdge.suggestions.length ? selectedEdge.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
-          </ul>
-        </div>
+        {editMode ? (
+          <>
+            <input value={label} onChange={e => setLabel(e.target.value)} />
+            <button onClick={() => { onUpdateEdge({ ...selectedEdge, label }); setEditMode(false); }}>Save</button>
+            <button onClick={() => setEditMode(false)}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <div>
+              <strong>{selectedEdge.label}</strong>
+              <button onClick={() => setEditMode(true)} style={{ marginLeft: 8 }}>Edit</button>
+            </div>
+            <div>
+              <strong>Issues:</strong>
+              <ul>
+                {selectedEdge.issues.length ? selectedEdge.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
+              </ul>
+            </div>
+            <div>
+              <strong>Suggestions:</strong>
+              <ul>
+                {selectedEdge.suggestions.length ? selectedEdge.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -76,23 +194,37 @@ function Sidebar({ selectedNode, selectedEdge }: { selectedNode: Node | null; se
   return (
     <div>
       <h3>Details for {selectedNode.label}</h3>
-      <div>
-        <strong>Issues:</strong>
-        <ul>
-          {selectedNode.issues.length ? selectedNode.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
-        </ul>
-      </div>
-      <div>
-        <strong>Suggestions:</strong>
-        <ul>
-          {selectedNode.suggestions.length ? selectedNode.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
-        </ul>
-      </div>
+      {editMode ? (
+        <>
+          <input value={label} onChange={e => setLabel(e.target.value)} />
+          <button onClick={() => { onUpdateNode({ ...selectedNode, label }); setEditMode(false); }}>Save</button>
+          <button onClick={() => setEditMode(false)}>Cancel</button>
+        </>
+      ) : (
+        <>
+          <div>
+            <strong>Label:</strong> {selectedNode.label}
+            <button onClick={() => setEditMode(true)} style={{ marginLeft: 8 }}>Edit</button>
+          </div>
+          <div>
+            <strong>Issues:</strong>
+            <ul>
+              {selectedNode.issues.length ? selectedNode.issues.map((i, idx) => <li key={idx}>{i}</li>) : <li>None</li>}
+            </ul>
+          </div>
+          <div>
+            <strong>Suggestions:</strong>
+            <ul>
+              {selectedNode.suggestions.length ? selectedNode.suggestions.map((s, idx) => <li key={idx}>{s}</li>) : <li>None</li>}
+            </ul>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-// Dependency Graph with zoom/pan/drag and hover effects
+// Dependency Graph
 function DependencyGraph({
   nodes,
   edges,
@@ -101,6 +233,7 @@ function DependencyGraph({
   setSelectedNodeId,
   setSelectedEdgeId,
   theme,
+  svgRef,
 }: {
   nodes: Node[];
   edges: Edge[];
@@ -109,8 +242,8 @@ function DependencyGraph({
   setSelectedNodeId: (id: string | null) => void;
   setSelectedEdgeId: (id: string | null) => void;
   theme: 'dark' | 'light';
+  svgRef: React.RefObject<SVGSVGElement | null>;
 }) {
-  const svgRef = useRef<SVGSVGElement>(null);
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 600 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -172,10 +305,18 @@ function DependencyGraph({
         return (
           <g
             key={edge.id}
+            tabIndex={0}
+            aria-label={`Edge ${edge.label} from ${source.label} to ${target.label}`}
             onClick={() => { setSelectedEdgeId(edge.id); setSelectedNodeId(null); }}
             onMouseEnter={() => setHoveredEdgeId(edge.id)}
             onMouseLeave={() => setHoveredEdgeId(null)}
-            style={{ cursor: 'pointer' }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setSelectedEdgeId(edge.id);
+                setSelectedNodeId(null);
+              }
+            }}
+            style={{ cursor: 'pointer', outline: selectedEdgeId === edge.id ? '2px solid #00bcd4' : 'none' }}
           >
             <line
               x1={source.x}
@@ -206,11 +347,12 @@ function DependencyGraph({
               fill={textColor}
               fontSize={12}
               textAnchor="middle"
+              fontWeight="bold"
             >
               {edge.label}
             </text>
             {hasIssue && (
-              <circle cx={(source.x + target.x) / 2} cy={(source.y + target.y) / 2} r={8} fill="#e53935" />
+              <circle cx={(source.x + target.x) / 2 + 22} cy={(source.y + target.y) / 2 - 22} r={8} fill="#e53935" />
             )}
           </g>
         );
@@ -221,11 +363,19 @@ function DependencyGraph({
         return (
           <g
             key={node.id}
+            tabIndex={0}
+            aria-label={`Node ${node.label}`}
             onClick={() => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
             onMouseDown={e => handleMouseDown(node.id, e)}
             onMouseEnter={() => setHoveredNodeId(node.id)}
             onMouseLeave={() => setHoveredNodeId(null)}
-            style={{ cursor: 'pointer' }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setSelectedNodeId(node.id);
+                setSelectedEdgeId(null);
+              }
+            }}
+            style={{ cursor: 'pointer', outline: selectedNodeId === node.id ? '2px solid #00bcd4' : 'none' }}
           >
             <circle
               cx={node.x}
@@ -295,12 +445,46 @@ export default function App() {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
   const [data, setData] = useState<DependencyData>({ nodes: [], edges: [] });
   const [helpOpen, setHelpOpen] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  // Fetch dependency data
+  // Add update handlers here
+  const handleUpdateNode = async (updatedNode: Node) => {
+    setData(prev => ({
+      ...prev,
+      nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
+    }));
+    try {
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/nodes/${updatedNode.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedNode)
+      });
+    } catch (e) {
+      // Optionally show error feedback
+    }
+  };
+
+  const handleUpdateEdge = async (updatedEdge: Edge) => {
+    setData(prev => ({
+      ...prev,
+      edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
+    }));
+    try {
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/edges/${updatedEdge.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedEdge)
+      });
+    } catch (e) {
+      // Optionally show error feedback
+    }
+  };
+
+  // Fetch dependency data and run analysis
   useEffect(() => {
     fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
       .then(res => res.json())
-      .then(setData)
+      .then(rawData => setData(analyzeDependencies(rawData)))
       .catch(() => setData({ nodes: [], edges: [] }));
   }, []);
 
@@ -337,6 +521,31 @@ export default function App() {
   const mainBg = theme === 'dark' ? '#282c34' : '#fff';
   const textColor = theme === 'dark' ? '#fff' : '#222';
 
+  // Export SVG handler
+  const handleExportSVG = () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    let source = serializer.serializeToString(svg);
+
+    // Add XML declaration if missing
+    if (!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
+      source = source.replace(
+        /^<svg/,
+        '<svg xmlns="http://www.w3.org/2000/svg"'
+      );
+    }
+    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dependency-graph.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Segoe UI, sans-serif', background: bgColor }}>
       {/* Top Bar */}
@@ -368,7 +577,7 @@ export default function App() {
               // Re-run analysis
               fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
                 .then(res => res.json())
-                .then(setData)
+                .then(rawData => setData(analyzeDependencies(rawData)))
                 .catch(() => setData({ nodes: [], edges: [] }));
             }}
           >Run Analysis</button>
@@ -399,6 +608,20 @@ export default function App() {
             }}
           >
             Help
+          </button>
+          <button
+            onClick={handleExportSVG}
+            style={{
+              background: '#fff',
+              color: '#00bcd4',
+              border: '1px solid #00bcd4',
+              borderRadius: 4,
+              padding: '6px 16px',
+              cursor: 'pointer',
+              fontWeight: 500
+            }}
+          >
+            Export SVG
           </button>
         </div>
       </div>
@@ -452,7 +675,12 @@ export default function App() {
               </li>
             ))}
           </ul>
-          <Sidebar selectedNode={selectedNode} selectedEdge={selectedEdge} />
+          <Sidebar
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            onUpdateNode={handleUpdateNode}
+            onUpdateEdge={handleUpdateEdge}
+          />
         </div>
         {/* Main Panel */}
         <div style={{
@@ -497,6 +725,7 @@ export default function App() {
               setSelectedNodeId={setSelectedNodeId}
               setSelectedEdgeId={setSelectedEdgeId}
               theme={theme}
+              svgRef={svgRef}
             />
           </div>
         </div>
