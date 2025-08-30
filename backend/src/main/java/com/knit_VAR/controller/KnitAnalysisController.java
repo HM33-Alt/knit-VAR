@@ -16,7 +16,7 @@ public class KnitAnalysisController {
 
     @PostMapping("/analyze")
     public ResponseEntity<KnitAnalysisResult> analyzeKnitFile(@RequestParam("file") MultipartFile file) {
-        KnitAnalysisResult result = knitAnalyzer.analyze(file);
+        KnitAnalysisResult result = knitAnalyzer.analyzeFull(file);
         return ResponseEntity.ok(result);
     }
 }

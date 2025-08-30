@@ -8,6 +8,8 @@ public class KnitAnalysisResult {
     private List<String> dependencies;
     private List<String> errors;
     private List<String> suggestions;
+    private List<Node> nodes;
+    private List<Edge> edges;
 
     // Getters and setters
     public boolean isHasProvides() { return hasProvides; }
@@ -24,4 +26,10 @@ public class KnitAnalysisResult {
 
     public List<String> getSuggestions() { return suggestions; }
     public void setSuggestions(List<String> suggestions) { this.suggestions = suggestions; }
+
+    public List<Node> getNodes() { return nodes; }
+    public void setNodes(List<Node> nodes) { this.nodes = nodes; }
+
+    public List<Edge> getEdges() { return edges; }
+    public void setEdges(List<Edge> edges) { this.edges = edges; }
 }
