@@ -111,8 +111,7 @@ The tool highlights potential issues, suggestions for improvement, and allows in
 ---
 
 ## Demonstration Video
-Watch the project in action on YouTube:  
-[![Knit Dependency Visualizer Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+[Knit Dependency Visualizer Demo](https://youtu.be/BEdtl-3Wsjk)
 * **Duration:** < 3 minutes
 * Showcases interactive graph, issue detection, and export features
 
