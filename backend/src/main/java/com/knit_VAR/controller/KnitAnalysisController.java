@@ -7,6 +7,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
 
+/**
+ * KnitAnalysisController
+ *
+ * Handles API requests related to analyzing Kotlin (.kt) files using the KnitAnalyzer service.
+ * Provides endpoints for uploading files and retrieving structured dependency analysis results.
+ *
+ * Portions of this file may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
+ */
 @RestController
 @RequestMapping("/api/knit")
 public class KnitAnalysisController {
@@ -14,6 +23,15 @@ public class KnitAnalysisController {
     @Autowired
     private KnitAnalyzer knitAnalyzer;
 
+    /**
+     * POST /api/knit/analyze
+     *
+     * Accepts a Kotlin (.kt) file as multipart/form-data and performs a full dependency analysis.
+     * Returns a KnitAnalysisResult object that includes nodes, edges, issues, suggestions, etc.
+     *
+     * @param file The uploaded Kotlin file to be analyzed
+     * @return ResponseEntity containing the analysis result
+     */
     @PostMapping("/analyze")
     public ResponseEntity<KnitAnalysisResult> analyzeKnitFile(@RequestParam("file") MultipartFile file) {
         KnitAnalysisResult result = knitAnalyzer.analyzeFull(file);

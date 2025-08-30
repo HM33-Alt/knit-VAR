@@ -7,15 +7,25 @@ import { DependencyData, Node, Edge } from './types';
 import { demoDependencyData } from './demoDependencyData';
 
 export default function App() {
+  // State for currently selected node and edge
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
+  // Search input and theme selection
   const [search, setSearch] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  // Dependency graph data
   const [data, setData] = useState<DependencyData>(demoDependencyData);
+
+  // Help modal visibility and severity filter
   const [helpOpen, setHelpOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'warning' | 'critical'>('all');
+
+  // Ref for the SVG element (used for exporting)
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Update a node both locally and via backend PUT request
   const handleUpdateNode = async (updatedNode: Node) => {
     setData(prev => ({
       ...prev,
@@ -28,9 +38,12 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedNode)
       });
-    } catch {}
+    } catch {
+      // silently fail if backend update fails
+    }
   };
 
+  // Update an edge both locally and via backend PUT request
   const handleUpdateEdge = async (updatedEdge: Edge) => {
     setData(prev => ({
       ...prev,
@@ -43,40 +56,49 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedEdge)
       });
-    } catch {}
+    } catch {
+      // silently fail if backend update fails
+    }
   };
 
+  // Wrapper to update graph data from child components
   const handleSetData = (updater: React.SetStateAction<DependencyData>) => {
     setData(updater);
   };
 
-  // Filter nodes by search & severity
+  // Filter nodes based on search string and severity
   const filteredNodes = data.nodes.filter(n =>
     n.label.toLowerCase().includes(search.toLowerCase()) &&
     (filter === 'all' || (filter === 'warning' && n.issues.includes('warning')) || (filter === 'critical' && n.issues.includes('critical')))
   );
 
+  // Filter edges based on severity
   const filteredEdges = data.edges.filter(e =>
     filter === 'all' || (filter === 'warning' && e.issues.includes('warning')) || (filter === 'critical' && e.issues.includes('critical'))
   );
 
+  // Find the currently selected node or edge
   const selectedNode = data.nodes.find(n => n.id === selectedNodeId) || null;
   const selectedEdge = data.edges.find(e => e.id === selectedEdgeId) || null;
 
+  // Define color palette based on theme
   const bgColor = theme === 'dark' ? '#23272e' : '#f5f7fa';
   const sidebarBg = theme === 'dark' ? '#20232a' : '#fff';
   const sidebarBorder = theme === 'dark' ? '#2c313c' : '#eee';
   const mainBg = theme === 'dark' ? '#282c34' : '#fff';
   const textColor = theme === 'dark' ? '#fff' : '#222';
 
+  // Export the SVG graph as a file
   const handleExportSVG = () => {
     const svg = svgRef.current;
     if (!svg) return;
+
     const serializer = new XMLSerializer();
     let source = serializer.serializeToString(svg);
     if (!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
       source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
     }
+
     const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -88,6 +110,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Export dependency data as JSON
   const handleExportJSON = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -100,11 +123,13 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  // Export dependency data as CSV
   const handleExportCSV = () => {
     let csv = 'source,target,label,issues,suggestions\n';
     data.edges.forEach(e => {
       csv += `${e.source},${e.target},${e.label},"${e.issues.join(';')}","${e.suggestions.join(';')}"\n`;
     });
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -118,7 +143,7 @@ export default function App() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Segoe UI, sans-serif', background: bgColor }}>
-      {/* Top Bar */}
+      {/* Top Navigation Bar */}
       <div style={{
         height: 48,
         background: theme === 'dark' ? '#1a1d21' : '#e0f7fa',
@@ -130,6 +155,7 @@ export default function App() {
       }}>
         <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: 1 }}>Knit-VAR Visualizer</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>
+          {/* Theme Toggle */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             style={{
@@ -144,6 +170,8 @@ export default function App() {
           >
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
+
+          {/* Help Modal */}
           <button
             onClick={() => setHelpOpen(true)}
             style={{
@@ -158,48 +186,13 @@ export default function App() {
           >
             Help
           </button>
-          <button
-            onClick={handleExportSVG}
-            style={{
-              background: '#fff',
-              color: '#00bcd4',
-              border: '1px solid #00bcd4',
-              borderRadius: 4,
-              padding: '6px 16px',
-              cursor: 'pointer',
-              fontWeight: 500
-            }}
-          >
-            Export SVG
-          </button>
-          <button
-            onClick={handleExportJSON}
-            style={{
-              background: '#fff',
-              color: '#00bcd4',
-              border: '1px solid #00bcd4',
-              borderRadius: 4,
-              padding: '6px 16px',
-              cursor: 'pointer',
-              fontWeight: 500
-            }}
-          >
-            Export JSON
-          </button>
-          <button
-            onClick={handleExportCSV}
-            style={{
-              background: '#fff',
-              color: '#00bcd4',
-              border: '1px solid #00bcd4',
-              borderRadius: 4,
-              padding: '6px 16px',
-              cursor: 'pointer',
-              fontWeight: 500
-            }}
-          >
-            Export CSV
-          </button>
+
+          {/* Export buttons */}
+          <button onClick={handleExportSVG} style={{ background: '#fff', color: '#00bcd4', border: '1px solid #00bcd4', borderRadius: 4, padding: '6px 16px', cursor: 'pointer', fontWeight: 500 }}>Export SVG</button>
+          <button onClick={handleExportJSON} style={{ background: '#fff', color: '#00bcd4', border: '1px solid #00bcd4', borderRadius: 4, padding: '6px 16px', cursor: 'pointer', fontWeight: 500 }}>Export JSON</button>
+          <button onClick={handleExportCSV} style={{ background: '#fff', color: '#00bcd4', border: '1px solid #00bcd4', borderRadius: 4, padding: '6px 16px', cursor: 'pointer', fontWeight: 500 }}>Export CSV</button>
+
+          {/* Severity filter */}
           <select value={filter} onChange={e => setFilter(e.target.value as any)} style={{ padding: 6, borderRadius: 4 }}>
             <option value="all">All</option>
             <option value="warning">Warnings</option>
@@ -207,6 +200,7 @@ export default function App() {
           </select>
         </div>
       </div>
+
       {/* Main Layout */}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {/* Sidebar */}
@@ -220,6 +214,7 @@ export default function App() {
           display: 'flex',
           flexDirection: 'column'
         }}>
+          {/* Search box */}
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -234,6 +229,8 @@ export default function App() {
               color: textColor
             }}
           />
+
+          {/* List of filtered nodes */}
           <ul style={{ listStyle: 'none', padding: 0, marginBottom: 16 }}>
             {filteredNodes.map(node => (
               <li
@@ -257,6 +254,8 @@ export default function App() {
               </li>
             ))}
           </ul>
+
+          {/* Sidebar with node/edge details */}
           <Sidebar
             selectedNode={selectedNode}
             selectedEdge={selectedEdge}
@@ -264,7 +263,8 @@ export default function App() {
             onUpdateEdge={handleUpdateEdge}
           />
         </div>
-        {/* Main Panel */}
+
+        {/* Main panel */}
         <div style={{
           flex: 1,
           background: mainBg,
@@ -273,14 +273,14 @@ export default function App() {
           boxSizing: 'border-box',
           overflowY: 'auto'
         }}>
+          {/* Upload component */}
           <div style={{ marginBottom: 24 }}>
             <KnitUpload
               onDataLoaded={(processedData) => {
+                // Position nodes in a grid layout if coordinates are not set
                 const columns = 5;
                 const spacingX = 200;
                 const spacingY = 200;
-                const startX = 800 - ((Math.min(processedData.nodes.length, columns) - 1) / 2) * spacingX;
-                const startY = 500 - (Math.floor((processedData.nodes.length - 1) / columns) / 2) * spacingY;
                 const positionedNodes = processedData.nodes.map((node, idx) => ({
                   ...node,
                   x: node.x ?? 100 + (idx % columns) * spacingX,
@@ -290,6 +290,8 @@ export default function App() {
               }}
             />
           </div>
+
+          {/* List of edges */}
           <h3 style={{ color: '#00bcd4', marginBottom: 16 }}>Edges</h3>
           <ul>
             {filteredEdges.map(edge => (
@@ -315,6 +317,8 @@ export default function App() {
               </li>
             ))}
           </ul>
+
+          {/* Dependency graph */}
           <div style={{ marginTop: 32 }}>
             <DependencyGraph
               nodes={data.nodes}
@@ -330,6 +334,8 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Help modal */}
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );

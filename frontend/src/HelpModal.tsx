@@ -1,5 +1,6 @@
 import React from 'react';
 
+// Static list of Knit dependency principles to show in the modal
 const knitPrinciples = [
   {
     title: "Shortest Path",
@@ -19,17 +20,29 @@ const knitPrinciples = [
   }
 ];
 
+/**
+ * HelpModal component displays instructions and principles for the Dependency Visualizer IDE.
+ *
+ * @param open - boolean to show/hide the modal
+ * @param onClose - callback function to close the modal
+ */
 export function HelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // If modal is not open, render nothing
   if (!open) return null;
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-      background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+      background: 'rgba(0,0,0,0.5)', // semi-transparent overlay
+      zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
     }}>
       <div style={{
-        background: '#fff', color: '#222', borderRadius: 8, padding: 32, width: 500, boxShadow: '0 2px 16px rgba(0,0,0,0.2)'
+        background: '#fff', color: '#222', borderRadius: 8, padding: 32,
+        width: 500, boxShadow: '0 2px 16px rgba(0,0,0,0.2)' // modal card style
       }}>
         <h2>Dependency Visualizer IDE - Help</h2>
+
+        {/* General instructions */}
         <ul>
           <li><strong>Visualize:</strong> Shows dependency graph for Knit-based projects.</li>
           <li><strong>Issues:</strong> Highlights circular/unnecessary dependencies.</li>
@@ -38,6 +51,8 @@ export function HelpModal({ open, onClose }: { open: boolean; onClose: () => voi
           <li><strong>Search:</strong> Filter nodes by name.</li>
           <li><strong>Docs:</strong> See usage, APIs, assets, libraries here.</li>
         </ul>
+
+        {/* Display Knit dependency principles */}
         <h4 style={{ marginTop: 32 }}>Knit Dependency Lookup Principles</h4>
         <ul>
           {knitPrinciples.map(p => (
@@ -46,7 +61,17 @@ export function HelpModal({ open, onClose }: { open: boolean; onClose: () => voi
             </li>
           ))}
         </ul>
-        <button onClick={onClose} style={{ marginTop: 24, padding: '8px 24px', borderRadius: 4, background: '#00bcd4', color: '#fff', border: 'none', fontWeight: 500 }}>Close</button>
+
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: 24, padding: '8px 24px', borderRadius: 4,
+            background: '#00bcd4', color: '#fff', border: 'none', fontWeight: 500
+          }}
+        >
+          Close
+        </button>
       </div>
     </div>
   );

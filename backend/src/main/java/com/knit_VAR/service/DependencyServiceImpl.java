@@ -10,34 +10,72 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.knit_VAR.dto.DependencyAnalysisResult;
 
+/**
+ * DependencyServiceImpl
+ *
+ * Implementation of DependencyService for analyzing Kotlin project dependencies.
+ *
+ * - Accept a zipped Kotlin project (.zip) and extract its contents
+ * - Scan Kotlin source files for @Provides annotated classes and DI references
+ * - Build nodes and edges for the dependency graph
+ * - Detect simple circular dependencies and unused dependencies
+ * - Placeholder methods for version conflict detection and visualization enhancements
+ *
+ * Portions of this code may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
+ */
 @Service
 public class DependencyServiceImpl implements DependencyService {
 
     private static final Logger logger = LoggerFactory.getLogger(DependencyServiceImpl.class);
+
+    /** Stores the analysis results for the current project */
     private DependencyAnalysisResult analysisResult = new DependencyAnalysisResult();
+
+    /** Temporary directory where the uploaded project is extracted */
     private Path tempProjectDir;
 
+    /**
+     * Processes the uploaded Kotlin project zip file.
+     * @param file the uploaded zip file
+     */
     @Override
     public void processProject(MultipartFile file) {
         try {
+            // Reset analysis result for each new upload
             analysisResult = new DependencyAnalysisResult();
             tempProjectDir = Files.createTempDirectory("knit_project");
+
+            // Extract zip contents
             unzip(file.getInputStream(), tempProjectDir);
+
+            // Scan all Kotlin source files
             scanKotlinSources(tempProjectDir);
+
+            // Perform analysis steps
             detectCircularDependencies();
             detectUnusedDependencies();
             detectVersionConflicts();
             enhanceGraphVisualization();
+
         } catch (Exception e) {
             analysisResult.errors.add("Failed to process project: " + e.getMessage());
+            logger.error("Error processing project", e);
         }
     }
 
+    /**
+     * Returns the dependency analysis result after processing.
+     * @return DependencyAnalysisResult containing nodes, edges, errors, and suggestions
+     */
     @Override
     public DependencyAnalysisResult getDependencyGraph() {
         return analysisResult;
     }
 
+    /**
+     * Extracts the contents of a zip input stream into a target directory.
+     */
     private void unzip(InputStream inputStream, Path targetDir) throws IOException {
         try (ZipInputStream zis = new ZipInputStream(inputStream)) {
             ZipEntry entry;
@@ -53,12 +91,18 @@ public class DependencyServiceImpl implements DependencyService {
         }
     }
 
+    /**
+     * Recursively scans a directory for Kotlin source files and analyzes them.
+     */
     private void scanKotlinSources(Path dir) throws IOException {
         Files.walk(dir)
                 .filter(path -> path.toString().endsWith(".kt"))
                 .forEach(this::analyzeKotlinFile);
     }
 
+    /**
+     * Analyzes a single Kotlin file to extract DI-provided classes and dependencies.
+     */
     private void analyzeKotlinFile(Path kotlinFile) {
         try {
             List<String> lines = Files.readAllLines(kotlinFile);
@@ -66,14 +110,15 @@ public class DependencyServiceImpl implements DependencyService {
             List<String> dependencies = new ArrayList<>();
 
             for (String line : lines) {
-                if (line.contains("@Provides")) {
-                    if (line.contains("class ")) {
-                        int idx = line.indexOf("class ") + 6;
-                        int end = line.indexOf("(", idx);
-                        if (end == -1) end = line.length();
-                        componentName = line.substring(idx, end).trim();
-                    }
+                // Detect @Provides annotation and class declaration
+                if (line.contains("@Provides") && line.contains("class ")) {
+                    int idx = line.indexOf("class ") + 6;
+                    int end = line.indexOf("(", idx);
+                    if (end == -1) end = line.length();
+                    componentName = line.substring(idx, end).trim();
                 }
+
+                // Detect DI injected properties
                 if (line.contains("by di")) {
                     String[] parts = line.split("val ");
                     if (parts.length > 1) {
@@ -83,13 +128,14 @@ public class DependencyServiceImpl implements DependencyService {
                 }
             }
 
+            // Create node and edges in the graph
             if (componentName != null) {
                 Map<String, Object> node = new HashMap<>();
                 node.put("id", componentName);
                 node.put("label", componentName);
                 node.put("x", Math.random() * 600 + 100);
                 node.put("y", Math.random() * 400 + 100);
-                node.put("color", "default"); // color based on severity
+                node.put("color", "default"); // severity
                 node.put("issues", new ArrayList<String>());
                 node.put("suggestions", new ArrayList<String>());
                 analysisResult.nodes.add(node);
@@ -100,20 +146,23 @@ public class DependencyServiceImpl implements DependencyService {
                     edge.put("source", componentName);
                     edge.put("target", dep);
                     edge.put("label", componentName + "→" + dep);
-                    edge.put("thickness", 1); // edge thickness by number of imports
+                    edge.put("thickness", 1);
                     edge.put("issues", new ArrayList<String>());
                     edge.put("suggestions", new ArrayList<String>());
                     analysisResult.edges.add(edge);
                 }
             }
+
         } catch (IOException e) {
             analysisResult.errors.add("Failed to analyze Kotlin file: " + kotlinFile + " - " + e.getMessage());
+            logger.error("Error analyzing Kotlin file", e);
         }
     }
 
-    // --- New feature scaffolds ---
+    /** --- Analysis feature scaffolds --- */
+
+    /** Detects circular dependencies in the graph and marks them */
     private void detectCircularDependencies() {
-        // Simple cycle detection placeholder
         Map<String, List<String>> graph = new HashMap<>();
         for (Map<String, Object> edge : analysisResult.edges) {
             String source = (String) edge.get("source");
@@ -124,7 +173,6 @@ public class DependencyServiceImpl implements DependencyService {
         Set<String> stack = new HashSet<>();
         for (String node : graph.keySet()) {
             if (detectCycleDFS(node, graph, visited, stack)) {
-                // mark nodes and edges with severity
                 for (Map<String, Object> n : analysisResult.nodes) {
                     if (stack.contains(n.get("id"))) n.put("color", "red"); // critical
                 }
@@ -138,6 +186,7 @@ public class DependencyServiceImpl implements DependencyService {
         }
     }
 
+    /** Helper method for DFS cycle detection */
     private boolean detectCycleDFS(String node, Map<String, List<String>> graph, Set<String> visited, Set<String> stack) {
         if (stack.contains(node)) return true;
         if (visited.contains(node)) return false;
@@ -151,6 +200,7 @@ public class DependencyServiceImpl implements DependencyService {
         return false;
     }
 
+    /** Marks unused dependencies in the graph */
     private void detectUnusedDependencies() {
         Set<String> used = new HashSet<>();
         for (Map<String, Object> edge : analysisResult.edges) {
@@ -164,11 +214,13 @@ public class DependencyServiceImpl implements DependencyService {
         }
     }
 
+    /** Placeholder for version conflict detection */
     private void detectVersionConflicts() {
-        // Placeholder: would require external library version info
+        // Would require external library version info
     }
 
+    /** Placeholder for visualization enhancements */
     private void enhanceGraphVisualization() {
-        // Additional enhancements can go here: zoom/filter, export placeholders
+        // e.g., zoom, filter, export enhancements
     }
 }

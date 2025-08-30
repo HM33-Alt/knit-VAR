@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Node, Edge, DependencyData } from './types';
 
+/**
+ * DependencyGraph renders nodes and edges of a Knit-based project dependency graph.
+ * Supports dragging nodes, hover effects, selection, zoom (wheel), and visual severity cues.
+ */
 export function DependencyGraph({
   nodes,
   edges,
@@ -22,19 +26,21 @@ export function DependencyGraph({
   svgRef: React.RefObject<SVGSVGElement | null>;
   setData: React.Dispatch<React.SetStateAction<DependencyData>>;
 }) {
+  // Viewbox state for zoom/pan
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 600 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
+  // Fill in default coordinates & values
   const nodesWithCoords = nodes.map((n, i) => ({
     ...n,
     x: n.x ?? (100 + (i % 5) * 200),
     y: n.y ?? (100 + Math.floor(i / 5) * 200),
     issues: n.issues ?? [],
     suggestions: n.suggestions ?? [],
-    severity: n.severity ?? 'default', // new field from backend
+    severity: n.severity ?? 'default',
   }));
 
   const edgesWithDefaults = edges.map(e => ({
@@ -45,6 +51,7 @@ export function DependencyGraph({
     thickness: e.thickness ?? 2,
   }));
 
+  // Zoom handler
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 0.9 : 1.1;
@@ -56,6 +63,7 @@ export function DependencyGraph({
     }));
   };
 
+  // Drag handlers
   const handleMouseDown = (id: string, e: React.MouseEvent) => {
     setDragging(id);
     setOffset({ x: e.clientX, y: e.clientY });
@@ -66,15 +74,16 @@ export function DependencyGraph({
       const dx = e.clientX - offset.x;
       const dy = e.clientY - offset.y;
       setOffset({ x: e.clientX, y: e.clientY });
-      setData((prev: DependencyData) => ({
+      setData(prev => ({
         ...prev,
-        nodes: prev.nodes.map((n: Node) =>
+        nodes: prev.nodes.map(n =>
           n.id === dragging ? { ...n, x: n.x + dx, y: n.y + dy } : n
         )
       }));
     }
   };
 
+  // Node and edge coloring based on severity / issues
   const nodeColor = (node: Node) => {
     switch (node.severity) {
       case 'critical': return '#e53935';
@@ -82,7 +91,8 @@ export function DependencyGraph({
       default: return theme === 'dark' ? '#263238' : '#e0f7fa';
     }
   };
-  const edgeColor = (edge: Edge) => edge.issues.length > 0 ? '#e53935' : (theme === 'dark' ? '#00bcd4' : '#00796b');
+  const edgeColor = (edge: Edge) =>
+    edge.issues.length > 0 ? '#e53935' : (theme === 'dark' ? '#00bcd4' : '#00796b');
   const textColor = theme === 'dark' ? '#fff' : '#222';
 
   return (
@@ -91,12 +101,16 @@ export function DependencyGraph({
       width={800}
       height={600}
       viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-      style={{ background: theme === 'dark' ? '#282c34' : '#f5f7fa', borderRadius: 8, cursor: dragging ? 'grabbing' : 'default' }}
+      style={{
+        background: theme === 'dark' ? '#282c34' : '#f5f7fa',
+        borderRadius: 8,
+        cursor: dragging ? 'grabbing' : 'default'
+      }}
       onWheel={handleWheel}
       onMouseUp={handleMouseUp}
       onMouseMove={handleMouseMove}
     >
-      {/* Edges */}
+      {/* Render edges */}
       {edgesWithDefaults.map(edge => {
         const source = nodesWithCoords.find(n => n.id === edge.source);
         const target = nodesWithCoords.find(n => n.id === edge.target);
@@ -113,10 +127,7 @@ export function DependencyGraph({
             style={{ cursor: 'pointer', outline: selectedEdgeId === edge.id ? '2px solid #00bcd4' : 'none' }}
           >
             <line
-              x1={source.x}
-              y1={source.y}
-              x2={target.x}
-              y2={target.y}
+              x1={source.x} y1={source.y} x2={target.x} y2={target.y}
               stroke={
                 hoveredEdgeId === edge.id
                   ? '#00bcd4'
@@ -150,7 +161,7 @@ export function DependencyGraph({
         );
       })}
 
-      {/* Nodes */}
+      {/* Render nodes */}
       {nodesWithCoords.map(node => (
         <g
           key={node.id}
@@ -163,20 +174,13 @@ export function DependencyGraph({
           style={{ cursor: 'pointer', outline: selectedNodeId === node.id ? '2px solid #00bcd4' : 'none' }}
         >
           <circle
-            cx={node.x}
-            cy={node.y}
-            r={28}
+            cx={node.x} cy={node.y} r={28}
             fill={hoveredNodeId === node.id ? '#00bcd4' : selectedNodeId === node.id ? '#ff9800' : nodeColor(node)}
             stroke={hoveredNodeId === node.id ? '#00bcd4' : selectedNodeId === node.id ? '#ff9800' : theme === 'dark' ? '#00bcd4' : '#00796b'}
             strokeWidth={hoveredNodeId === node.id ? 5 : selectedNodeId === node.id ? 4 : 2}
           />
           <text
-            x={node.x}
-            y={node.y + 5}
-            fill={textColor}
-            fontSize={14}
-            textAnchor="middle"
-            fontWeight="bold"
+            x={node.x} y={node.y + 5} fill={textColor} fontSize={14} textAnchor="middle" fontWeight="bold"
           >
             {node.label}
           </text>
@@ -186,6 +190,7 @@ export function DependencyGraph({
         </g>
       ))}
 
+      {/* Arrowhead definition for edges */}
       <defs>
         <marker
           id="arrowhead"
