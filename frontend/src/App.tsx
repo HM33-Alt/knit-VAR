@@ -448,18 +448,6 @@ export default function App() {
   );
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Data loading logic
-  useEffect(() => {
-    if (dataSource === 'test') {
-      setData(testData);
-    } else {
-      fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
-        .then(res => res.json())
-        .then(rawData => setData(analyzeDependencies(rawData)))
-        .catch(() => setData({ nodes: [], edges: [] }));
-    }
-  }, [dataSource, testData]);
-
   // Persist changes to test data
   const handleUpdateNode = async (updatedNode: Node) => {
     if (dataSource === 'test') {
@@ -595,7 +583,7 @@ export default function App() {
               if (dataSource === 'test') {
                 setData(testData);
               } else {
-                fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
+                fetch('http://localhost:8080/api/dependencies')
                   .then(res => res.json())
                   .then(rawData => setData(analyzeDependencies(rawData)))
                   .catch(() => setData({ nodes: [], edges: [] }));

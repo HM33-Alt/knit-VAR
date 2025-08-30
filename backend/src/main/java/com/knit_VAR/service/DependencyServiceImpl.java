@@ -9,29 +9,30 @@ import java.util.*;
 import java.util.zip.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.knit_VAR.dto.DependencyAnalysisResult;
 
 @Service
 public class DependencyServiceImpl implements DependencyService {
 
     private static final Logger logger = LoggerFactory.getLogger(DependencyServiceImpl.class);
-    private Map<String, List<String>> dependencyGraph = new HashMap<>();
+    private DependencyAnalysisResult analysisResult = new DependencyAnalysisResult();
     private Path tempProjectDir;
 
     @Override
     public void processProject(MultipartFile file) {
         try {
-            dependencyGraph.clear();
+            analysisResult = new DependencyAnalysisResult();
             tempProjectDir = Files.createTempDirectory("knit_project");
             unzip(file.getInputStream(), tempProjectDir);
-            scanClasses(tempProjectDir);
+            scanKotlinSources(tempProjectDir); // Use this instead of scanClasses
         } catch (Exception e) {
-            throw new RuntimeException("Failed to process project", e);
+            analysisResult.errors.add("Failed to process project: " + e.getMessage());
         }
     }
 
     @Override
-    public Map<String, Object> getDependencyGraph() {
-        return Collections.unmodifiableMap(dependencyGraph);
+    public DependencyAnalysisResult getDependencyGraph() {
+        return analysisResult;
     }
 
     private void unzip(InputStream inputStream, Path targetDir) throws IOException {
@@ -49,50 +50,59 @@ public class DependencyServiceImpl implements DependencyService {
         }
     }
 
-    private void scanClasses(Path dir) throws IOException {
+    private void scanKotlinSources(Path dir) throws IOException {
         Files.walk(dir)
-                .filter(path -> path.toString().endsWith(".class"))
-                .forEach(this::analyzeClassFile);
+                .filter(path -> path.toString().endsWith(".kt"))
+                .forEach(this::analyzeKotlinFile);
     }
 
-    private void analyzeClassFile(Path classFile) {
-        try (InputStream in = Files.newInputStream(classFile)) {
-            ClassReader reader = new ClassReader(in);
-            reader.accept(new ClassVisitor(Opcodes.ASM9) {
-                private String componentName;
-                private List<String> dependencies = new ArrayList<>();
+    private void analyzeKotlinFile(Path kotlinFile) {
+        try {
+            List<String> lines = Files.readAllLines(kotlinFile);
+            String componentName = null;
+            List<String> dependencies = new ArrayList<>();
 
-                @Override
-                public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                    if (desc.contains("KnitComponent")) {
-                        // Use class name without .class extension
-                        componentName = classFile.getFileName().toString().replace(".class", "");
-                    }
-                    return super.visitAnnotation(desc, visible);
-                }
-
-                @Override
-                public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-                    return new FieldVisitor(Opcodes.ASM9) {
-                        @Override
-                        public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                            if (desc.contains("KnitInject")) {
-                                dependencies.add(name);
-                            }
-                            return super.visitAnnotation(desc, visible);
-                        }
-                    };
-                }
-
-                @Override
-                public void visitEnd() {
-                    if (componentName != null) {
-                        dependencyGraph.put(componentName, new ArrayList<>(dependencies));
+            for (String line : lines) {
+                if (line.contains("@Provides")) {
+                    if (line.contains("class ")) {
+                        int idx = line.indexOf("class ") + 6;
+                        int end = line.indexOf("(", idx);
+                        if (end == -1) end = line.length();
+                        componentName = line.substring(idx, end).trim();
                     }
                 }
-            }, 0);
+                if (line.contains("by di")) {
+                    String[] parts = line.split("val ");
+                    if (parts.length > 1) {
+                        String dep = parts[1].split(" ")[0].trim();
+                        dependencies.add(dep);
+                    }
+                }
+            }
+
+            if (componentName != null) {
+                Map<String, Object> node = new HashMap<>();
+                node.put("id", componentName);
+                node.put("label", componentName);
+                node.put("x", Math.random() * 600 + 100);
+                node.put("y", Math.random() * 400 + 100);
+                node.put("issues", new ArrayList<String>());
+                node.put("suggestions", new ArrayList<String>());
+                analysisResult.nodes.add(node);
+
+                for (String dep : dependencies) {
+                    Map<String, Object> edge = new HashMap<>();
+                    edge.put("id", componentName + "_" + dep);
+                    edge.put("source", componentName);
+                    edge.put("target", dep);
+                    edge.put("label", componentName + "→" + dep);
+                    edge.put("issues", new ArrayList<String>());
+                    edge.put("suggestions", new ArrayList<String>());
+                    analysisResult.edges.add(edge);
+                }
+            }
         } catch (IOException e) {
-            logger.warn("Failed to analyze class file: {}", classFile, e);
+            analysisResult.errors.add("Failed to analyze Kotlin file: " + kotlinFile + " - " + e.getMessage());
         }
     }
 }
