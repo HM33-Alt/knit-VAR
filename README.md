@@ -20,8 +20,9 @@ The tool highlights potential issues, suggestions for improvement, and allows in
 - **Export Options**: Export graph data in JSON or CSV formats, and export the visual graph as SVG **_(incomplete)_**
 - **Demo/Test Data**: Built-in sample data to showcase features without requiring a Knit project.
 
-> **Screenshot Placeholder:**  
-> ![Graph Screenshot](./assets/home.png)
+> **Screenshot:**  
+> ![Graph Screenshot](./assets/dark.png)
+> ![Graph Screenshot](./assets/light.png)
 
 ---
 
@@ -64,6 +65,9 @@ The tool highlights potential issues, suggestions for improvement, and allows in
 
     * The tool parses dependencies and displays them in the graph.
 
+> **Visual Representation:**  
+> ![Graph Screenshot](./assets/graph.png)
+
 3. **Interact with the Graph**
 
     * Click nodes to view details and suggestions in the sidebar.
@@ -71,14 +75,33 @@ The tool highlights potential issues, suggestions for improvement, and allows in
     * Use the search bar to filter nodes.
     * Click any node and use the mouse scroll to zoom and/or drag to pan for better visibility.
 
+> **Filtering Options:**  
+> ![Graph Screenshot](./assets/filter.png)
+
+> **Suggestions:**  
+> ![Graph Screenshot](./assets/suggestions.png)
+
+> **Edges/Relations Analysis:**  
+> ![Graph Screenshot](./assets/edges.png)
+
 4. **Export Options**
 
     * Export CSV/JSON of nodes and edges. **_(incomplete)_**
     * Export the graph visualization as SVG.
+   
+> **Export Options:**  
+> ![Graph Screenshot](./assets/export.png)
 
 5. **Demo Data**
 
     * If no file is uploaded, the tool loads `demoDependencyData` to demonstrate features when first accessing the web app / upon refresh.
+> **Demo Data:**  
+> ![Graph Screenshot](./assets/dark.png)
+
+6. **Basic Help Panel**
+
+> **Help Panel:**  
+> ![Graph Screenshot](./assets/help.png)
 
 ---
 
