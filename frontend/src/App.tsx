@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { testDependencyData } from './testDependencyData';
+import { KnitUpload } from './KnitUpload';
 
 // Types
 type Node = {
@@ -711,6 +712,9 @@ export default function App() {
           boxSizing: 'border-box',
           overflowY: 'auto'
         }}>
+          <div style={{ marginBottom: 24 }}>
+              <KnitUpload />
+          </div>
           <h3 style={{ color: '#00bcd4', marginBottom: 16 }}>Edges</h3>
           <ul>
             {data.edges.map(edge => (
