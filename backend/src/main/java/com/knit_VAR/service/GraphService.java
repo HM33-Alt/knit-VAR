@@ -16,6 +16,7 @@ import java.util.List;
  *
  * Placeholder logic is currently used for demonstration purposes.
  * Portions of this code may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
  */
 @Service
 public class GraphService {
