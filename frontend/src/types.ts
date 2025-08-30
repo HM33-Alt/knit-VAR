@@ -5,7 +5,9 @@ export type Node = {
   y: number;
   issues: string[];
   suggestions: string[];
+  severity: 'default' | 'warning' | 'critical';
 };
+
 export type Edge = {
   id: string;
   source: string;
@@ -13,7 +15,9 @@ export type Edge = {
   label: string;
   issues: string[];
   suggestions: string[];
+  thickness: number;
 };
+
 export type DependencyData = {
   nodes: Node[];
   edges: Edge[];

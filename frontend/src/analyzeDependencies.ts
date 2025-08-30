@@ -1,10 +1,13 @@
 import { DependencyData, Node, Edge } from './types';
 
 /**
- * Analyzes dependencies for Knit DI Kotlin files.
+ * Analyzes dependencies for Knit DI Kotlin files and enriches them with:
+ * - Circular dependency detection
+ * - Unused dependency detection
+ * - Suggestions for large number of outgoing edges
+ * - Severity assignment for critical vs warning
  */
 export function analyzeDependencies(data: DependencyData): DependencyData {
-  // Copy nodes and edges
   const nodesMap: Record<string, Node> = {};
   const edges: Edge[] = data.edges.map(e => ({ ...e }));
 
@@ -14,7 +17,8 @@ export function analyzeDependencies(data: DependencyData): DependencyData {
       issues: n.issues ?? [],
       suggestions: n.suggestions ?? [],
       x: n.x ?? 0,
-      y: n.y ?? 0
+      y: n.y ?? 0,
+      severity: 'default'
     };
   });
 
@@ -31,9 +35,8 @@ export function analyzeDependencies(data: DependencyData): DependencyData {
     }
     if (visited[nodeId]) return;
     visited[nodeId] = true;
-    edges
-      .filter(e => e.source === nodeId)
-      .forEach(e => dfs(e.target));
+    stack.push(nodeId);
+    edges.filter(e => e.source === nodeId).forEach(e => dfs(e.target));
     stack.pop();
   }
 
@@ -42,47 +45,46 @@ export function analyzeDependencies(data: DependencyData): DependencyData {
     dfs(nodeId);
   });
 
-  // --- 2. Mark edge issues (cycles, unnecessary edges) ---
-  const edgeIssues: Record<string, string[]> = {};
-
-  // Cycle edges
-  cycles.forEach(cycle => {
-    for (let i = 0; i < cycle.length - 1; i++) {
-      const edge = edges.find(e => e.source === cycle[i] && e.target === cycle[i + 1]);
-      if (edge) {
-        edgeIssues[edge.id] = edgeIssues[edge.id] || [];
-        edgeIssues[edge.id].push('Circular dependency');
-      }
-    }
-  });
-
-  // Necessary edges check (basic BFS)
+  // --- 2. Detect unused edges ---
   const necessaryEdges = new Set<string>();
   Object.values(nodesMap).forEach(start => {
-    const queue: { id: string }[] = [{ id: start.id }];
+    const queue: string[] = [start.id];
     const visitedNodes: Record<string, boolean> = {};
     while (queue.length) {
-      const { id } = queue.shift()!;
+      const id = queue.shift()!;
       if (visitedNodes[id]) continue;
       visitedNodes[id] = true;
-      edges
-        .filter(e => e.source === id)
-        .forEach(e => {
-          necessaryEdges.add(e.id);
-          queue.push({ id: e.target });
-        });
+      edges.filter(e => e.source === id).forEach(e => {
+        necessaryEdges.add(e.id);
+        queue.push(e.target);
+      });
     }
   });
+
+  // --- 3. Assign issues and severity ---
+  const edgeIssues: Record<string, string[]> = {};
+  const suggestionsByNode: Record<string, string[]> = {};
+  const suggestionsByEdge: Record<string, string[]> = {};
 
   edges.forEach(e => {
+    const issues: string[] = [];
+    // Part of cycle?
+    if (cycles.some(cycle => {
+      return cycle.some((n, i) => i < cycle.length - 1 && cycle[i] === e.source && cycle[i + 1] === e.target);
+    })) {
+      issues.push('Circular dependency');
+    }
+    // Unnecessary edge?
     if (!necessaryEdges.has(e.id)) {
-      edgeIssues[e.id] = edgeIssues[e.id] || [];
-      edgeIssues[e.id].push('Unnecessary edge');
+      issues.push('Unused dependency');
+      suggestionsByEdge[e.id] = ['Consider removing this dependency.'];
+    }
+    if (issues.length > 0) {
+      edgeIssues[e.id] = issues;
     }
   });
 
-  // --- 3. Node suggestions ---
-  const suggestionsByNode: Record<string, string[]> = {};
+  // Node suggestions
   Object.values(nodesMap).forEach(node => {
     const outgoing = edges.filter(e => e.source === node.id).length;
     if (outgoing > 3) {
@@ -90,28 +92,33 @@ export function analyzeDependencies(data: DependencyData): DependencyData {
     }
   });
 
-  // --- 4. Edge suggestions ---
-  const suggestionsByEdge: Record<string, string[]> = {};
-  edges.forEach(e => {
-    if (edgeIssues[e.id]?.includes('Unnecessary edge')) {
-      suggestionsByEdge[e.id] = ['Remove unnecessary edge for clarity/performance.'];
+  // Assign severity
+  Object.values(nodesMap).forEach(node => {
+    const nodeInCycle = cycles.some(cycle => cycle.includes(node.id));
+    if (nodeInCycle) {
+      node.severity = 'critical';
+    } else if ((edges.filter(e => e.source === node.id).length || 0) > 3) {
+      node.severity = 'warning';
+    } else {
+      node.severity = 'default';
     }
   });
 
-  // --- 5. Return processed data ---
+  // --- 4. Return enriched data ---
   return {
     nodes: Object.values(nodesMap).map((n, idx) => ({
       ...n,
       issues: (cycles.some(cycle => cycle.includes(n.id)) ? ['Part of cycle'] : n.issues) ?? [],
-      suggestions: (suggestionsByNode[n.id] || n.suggestions) ?? [],
+      suggestions: suggestionsByNode[n.id] ?? n.suggestions,
       x: n.x ?? 100 + (idx % 5) * 200,
       y: n.y ?? 100 + Math.floor(idx / 5) * 200
     })),
     edges: edges.map(e => ({
       ...e,
-      issues: (edgeIssues[e.id] || e.issues) ?? [],
-      suggestions: (suggestionsByEdge[e.id] || e.suggestions) ?? [],
-      label: e.label || 'depends on'
+      issues: edgeIssues[e.id] ?? e.issues ?? [],
+      suggestions: suggestionsByEdge[e.id] ?? e.suggestions ?? [],
+      label: e.label || 'depends on',
+      thickness: edgeIssues[e.id]?.includes('Circular dependency') ? 4 : 2
     }))
   };
 }

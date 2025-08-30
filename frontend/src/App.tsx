@@ -12,6 +12,7 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [data, setData] = useState<DependencyData>({ nodes: [], edges: [] });
   const [helpOpen, setHelpOpen] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'warning' | 'critical'>('all');
   const svgRef = useRef<SVGSVGElement>(null);
 
   const handleUpdateNode = async (updatedNode: Node) => {
@@ -43,14 +44,21 @@ export default function App() {
       });
     } catch {}
   };
+
   const handleSetData = (updater: React.SetStateAction<DependencyData>) => {
     setData(updater);
   };
 
-
+  // Filter nodes by search & severity
   const filteredNodes = data.nodes.filter(n =>
-    n.label.toLowerCase().includes(search.toLowerCase())
+    n.label.toLowerCase().includes(search.toLowerCase()) &&
+    (filter === 'all' || (filter === 'warning' && n.issues.includes('warning')) || (filter === 'critical' && n.issues.includes('critical')))
   );
+
+  const filteredEdges = data.edges.filter(e =>
+    filter === 'all' || (filter === 'warning' && e.issues.includes('warning')) || (filter === 'critical' && e.issues.includes('critical'))
+  );
+
   const selectedNode = data.nodes.find(n => n.id === selectedNodeId) || null;
   const selectedEdge = data.edges.find(e => e.id === selectedEdgeId) || null;
 
@@ -65,18 +73,42 @@ export default function App() {
     if (!svg) return;
     const serializer = new XMLSerializer();
     let source = serializer.serializeToString(svg);
-
     if (!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
-      source = source.replace(
-        /^<svg/,
-        '<svg xmlns="http://www.w3.org/2000/svg"'
-      );
+      source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
     }
     const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = 'dependency-graph.svg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportJSON = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dependency-graph.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    let csv = 'source,target,label,issues,suggestions\n';
+    data.edges.forEach(e => {
+      csv += `${e.source},${e.target},${e.label},"${e.issues.join(';')}","${e.suggestions.join(';')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dependency-graph.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -139,6 +171,39 @@ export default function App() {
           >
             Export SVG
           </button>
+          <button
+            onClick={handleExportJSON}
+            style={{
+              background: '#fff',
+              color: '#00bcd4',
+              border: '1px solid #00bcd4',
+              borderRadius: 4,
+              padding: '6px 16px',
+              cursor: 'pointer',
+              fontWeight: 500
+            }}
+          >
+            Export JSON
+          </button>
+          <button
+            onClick={handleExportCSV}
+            style={{
+              background: '#fff',
+              color: '#00bcd4',
+              border: '1px solid #00bcd4',
+              borderRadius: 4,
+              padding: '6px 16px',
+              cursor: 'pointer',
+              fontWeight: 500
+            }}
+          >
+            Export CSV
+          </button>
+          <select value={filter} onChange={e => setFilter(e.target.value as any)} style={{ padding: 6, borderRadius: 4 }}>
+            <option value="all">All</option>
+            <option value="warning">Warnings</option>
+            <option value="critical">Critical</option>
+          </select>
         </div>
       </div>
       {/* Main Layout */}
@@ -210,27 +275,23 @@ export default function App() {
           <div style={{ marginBottom: 24 }}>
             <KnitUpload
               onDataLoaded={(processedData) => {
-                const columns = 5; // nodes per row
+                const columns = 5;
                 const spacingX = 200;
                 const spacingY = 200;
-
-                // calculate starting point to center nodes
                 const startX = 800 - ((Math.min(processedData.nodes.length, columns) - 1) / 2) * spacingX;
                 const startY = 500 - (Math.floor((processedData.nodes.length - 1) / columns) / 2) * spacingY;
-
                 const positionedNodes = processedData.nodes.map((node, idx) => ({
                   ...node,
                   x: node.x ?? startX + (idx % columns) * spacingX,
                   y: node.y ?? startY + Math.floor(idx / columns) * spacingY,
                 }));
-
                 setData({ ...processedData, nodes: positionedNodes });
               }}
             />
           </div>
           <h3 style={{ color: '#00bcd4', marginBottom: 16 }}>Edges</h3>
           <ul>
-            {data.edges.map(edge => (
+            {filteredEdges.map(edge => (
               <li
                 key={edge.id}
                 style={{

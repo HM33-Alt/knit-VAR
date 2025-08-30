@@ -2,7 +2,6 @@ package com.knit_VAR.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.objectweb.asm.*;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
@@ -24,7 +23,11 @@ public class DependencyServiceImpl implements DependencyService {
             analysisResult = new DependencyAnalysisResult();
             tempProjectDir = Files.createTempDirectory("knit_project");
             unzip(file.getInputStream(), tempProjectDir);
-            scanKotlinSources(tempProjectDir); // Use this instead of scanClasses
+            scanKotlinSources(tempProjectDir);
+            detectCircularDependencies();
+            detectUnusedDependencies();
+            detectVersionConflicts();
+            enhanceGraphVisualization();
         } catch (Exception e) {
             analysisResult.errors.add("Failed to process project: " + e.getMessage());
         }
@@ -86,6 +89,7 @@ public class DependencyServiceImpl implements DependencyService {
                 node.put("label", componentName);
                 node.put("x", Math.random() * 600 + 100);
                 node.put("y", Math.random() * 400 + 100);
+                node.put("color", "default"); // color based on severity
                 node.put("issues", new ArrayList<String>());
                 node.put("suggestions", new ArrayList<String>());
                 analysisResult.nodes.add(node);
@@ -96,6 +100,7 @@ public class DependencyServiceImpl implements DependencyService {
                     edge.put("source", componentName);
                     edge.put("target", dep);
                     edge.put("label", componentName + "→" + dep);
+                    edge.put("thickness", 1); // edge thickness by number of imports
                     edge.put("issues", new ArrayList<String>());
                     edge.put("suggestions", new ArrayList<String>());
                     analysisResult.edges.add(edge);
@@ -104,5 +109,66 @@ public class DependencyServiceImpl implements DependencyService {
         } catch (IOException e) {
             analysisResult.errors.add("Failed to analyze Kotlin file: " + kotlinFile + " - " + e.getMessage());
         }
+    }
+
+    // --- New feature scaffolds ---
+    private void detectCircularDependencies() {
+        // Simple cycle detection placeholder
+        Map<String, List<String>> graph = new HashMap<>();
+        for (Map<String, Object> edge : analysisResult.edges) {
+            String source = (String) edge.get("source");
+            String target = (String) edge.get("target");
+            graph.computeIfAbsent(source, k -> new ArrayList<>()).add(target);
+        }
+        Set<String> visited = new HashSet<>();
+        Set<String> stack = new HashSet<>();
+        for (String node : graph.keySet()) {
+            if (detectCycleDFS(node, graph, visited, stack)) {
+                // mark nodes and edges with severity
+                for (Map<String, Object> n : analysisResult.nodes) {
+                    if (stack.contains(n.get("id"))) n.put("color", "red"); // critical
+                }
+                for (Map<String, Object> e : analysisResult.edges) {
+                    if (stack.contains(e.get("source")) && stack.contains(e.get("target"))) {
+                        e.put("thickness", 3);
+                        ((List<String>) e.get("issues")).add("Circular dependency detected");
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean detectCycleDFS(String node, Map<String, List<String>> graph, Set<String> visited, Set<String> stack) {
+        if (stack.contains(node)) return true;
+        if (visited.contains(node)) return false;
+        visited.add(node);
+        stack.add(node);
+        List<String> neighbors = graph.getOrDefault(node, Collections.emptyList());
+        for (String n : neighbors) {
+            if (detectCycleDFS(n, graph, visited, stack)) return true;
+        }
+        stack.remove(node);
+        return false;
+    }
+
+    private void detectUnusedDependencies() {
+        Set<String> used = new HashSet<>();
+        for (Map<String, Object> edge : analysisResult.edges) {
+            used.add((String) edge.get("target"));
+        }
+        for (Map<String, Object> node : analysisResult.nodes) {
+            if (!used.contains(node.get("id"))) {
+                node.put("color", "orange");
+                ((List<String>) node.get("issues")).add("Unused dependency");
+            }
+        }
+    }
+
+    private void detectVersionConflicts() {
+        // Placeholder: would require external library version info
+    }
+
+    private void enhanceGraphVisualization() {
+        // Additional enhancements can go here: zoom/filter, export placeholders
     }
 }

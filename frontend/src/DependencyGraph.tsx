@@ -28,20 +28,21 @@ export function DependencyGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
-  // --- assign default coordinates and issues ---
   const nodesWithCoords = nodes.map((n, i) => ({
     ...n,
     x: n.x ?? (100 + (i % 5) * 200),
     y: n.y ?? (100 + Math.floor(i / 5) * 200),
     issues: n.issues ?? [],
-    suggestions: n.suggestions ?? []
+    suggestions: n.suggestions ?? [],
+    severity: n.severity ?? 'default', // new field from backend
   }));
 
   const edgesWithDefaults = edges.map(e => ({
     ...e,
     label: e.label ?? 'depends on',
     issues: e.issues ?? [],
-    suggestions: e.suggestions ?? []
+    suggestions: e.suggestions ?? [],
+    thickness: e.thickness ?? 2,
   }));
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -60,7 +61,6 @@ export function DependencyGraph({
     setOffset({ x: e.clientX, y: e.clientY });
   };
   const handleMouseUp = () => setDragging(null);
-
   const handleMouseMove = (e: React.MouseEvent) => {
     if (dragging) {
       const dx = e.clientX - offset.x;
@@ -75,8 +75,14 @@ export function DependencyGraph({
     }
   };
 
-  const nodeColor = theme === 'dark' ? '#263238' : '#e0f7fa';
-  const edgeColor = theme === 'dark' ? '#00bcd4' : '#00796b';
+  const nodeColor = (node: Node) => {
+    switch (node.severity) {
+      case 'critical': return '#e53935';
+      case 'warning': return '#ffa726';
+      default: return theme === 'dark' ? '#263238' : '#e0f7fa';
+    }
+  };
+  const edgeColor = (edge: Edge) => edge.issues.length > 0 ? '#e53935' : (theme === 'dark' ? '#00bcd4' : '#00796b');
   const textColor = theme === 'dark' ? '#fff' : '#222';
 
   return (
@@ -95,7 +101,7 @@ export function DependencyGraph({
         const source = nodesWithCoords.find(n => n.id === edge.source);
         const target = nodesWithCoords.find(n => n.id === edge.target);
         if (!source || !target) return null;
-        const hasIssue = edge.issues.length > 0;
+
         return (
           <g
             key={edge.id}
@@ -116,16 +122,14 @@ export function DependencyGraph({
                   ? '#00bcd4'
                   : selectedEdgeId === edge.id
                   ? '#ff9800'
-                  : hasIssue
-                  ? '#e53935'
-                  : edgeColor
+                  : edgeColor(edge)
               }
               strokeWidth={
                 hoveredEdgeId === edge.id
-                  ? 5
+                  ? edge.thickness + 2
                   : selectedEdgeId === edge.id
-                  ? 4
-                  : 2
+                  ? edge.thickness + 1
+                  : edge.thickness
               }
               markerEnd="url(#arrowhead)"
             />
@@ -139,70 +143,49 @@ export function DependencyGraph({
             >
               {edge.label}
             </text>
-            {hasIssue && (
+            {edge.issues.length > 0 && (
               <circle cx={(source.x + target.x) / 2 + 22} cy={(source.y + target.y) / 2 - 22} r={8} fill="#e53935" />
             )}
           </g>
         );
       })}
+
       {/* Nodes */}
-      {nodesWithCoords.map(node => {
-        const hasIssue = node.issues.length > 0;
-        return (
-          <g
-            key={node.id}
-            tabIndex={0}
-            aria-label={`Node ${node.label}`}
-            onClick={() => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
-            onMouseDown={e => handleMouseDown(node.id, e)}
-            onMouseEnter={() => setHoveredNodeId(node.id)}
-            onMouseLeave={() => setHoveredNodeId(null)}
-            style={{ cursor: 'pointer', outline: selectedNodeId === node.id ? '2px solid #00bcd4' : 'none' }}
+      {nodesWithCoords.map(node => (
+        <g
+          key={node.id}
+          tabIndex={0}
+          aria-label={`Node ${node.label}`}
+          onClick={() => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }}
+          onMouseDown={e => handleMouseDown(node.id, e)}
+          onMouseEnter={() => setHoveredNodeId(node.id)}
+          onMouseLeave={() => setHoveredNodeId(null)}
+          style={{ cursor: 'pointer', outline: selectedNodeId === node.id ? '2px solid #00bcd4' : 'none' }}
+        >
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={28}
+            fill={hoveredNodeId === node.id ? '#00bcd4' : selectedNodeId === node.id ? '#ff9800' : nodeColor(node)}
+            stroke={hoveredNodeId === node.id ? '#00bcd4' : selectedNodeId === node.id ? '#ff9800' : theme === 'dark' ? '#00bcd4' : '#00796b'}
+            strokeWidth={hoveredNodeId === node.id ? 5 : selectedNodeId === node.id ? 4 : 2}
+          />
+          <text
+            x={node.x}
+            y={node.y + 5}
+            fill={textColor}
+            fontSize={14}
+            textAnchor="middle"
+            fontWeight="bold"
           >
-            <circle
-              cx={node.x}
-              cy={node.y}
-              r={28}
-              fill={
-                hoveredNodeId === node.id
-                  ? '#00bcd4'
-                  : selectedNodeId === node.id
-                  ? '#ff9800'
-                  : hasIssue
-                  ? '#e53935'
-                  : nodeColor
-              }
-              stroke={
-                hoveredNodeId === node.id
-                  ? '#00bcd4'
-                  : selectedNodeId === node.id
-                  ? '#ff9800'
-                  : edgeColor
-              }
-              strokeWidth={
-                hoveredNodeId === node.id
-                  ? 5
-                  : selectedNodeId === node.id
-                  ? 4
-                  : 2
-              }
-            />
-            <text
-              x={node.x}
-              y={node.y + 5}
-              fill={textColor}
-              fontSize={14}
-              textAnchor="middle"
-              fontWeight="bold"
-            >
-              {node.label}
-            </text>
-            {hasIssue && (
-              <circle cx={node.x + 22} cy={node.y - 22} r={8} fill="#e53935" />
-            )}
-          </g>
-        );
-      })}
+            {node.label}
+          </text>
+          {node.issues.length > 0 && (
+            <circle cx={node.x + 22} cy={node.y - 22} r={8} fill="#e53935" />
+          )}
+        </g>
+      ))}
+
       <defs>
         <marker
           id="arrowhead"
@@ -212,7 +195,7 @@ export function DependencyGraph({
           refY="3.5"
           orient="auto"
         >
-          <polygon points="0 0, 10 3.5, 0 7" fill={edgeColor} />
+          <polygon points="0 0, 10 3.5, 0 7" fill={theme === 'dark' ? '#00bcd4' : '#00796b'} />
         </marker>
       </defs>
     </svg>
