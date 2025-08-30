@@ -128,7 +128,7 @@ export default function App() {
         padding: '0 24px',
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
       }}>
-        <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: 1 }}>Dependency Visualizer IDE</span>
+        <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: 1 }}>Knit-VAR Visualizer</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
