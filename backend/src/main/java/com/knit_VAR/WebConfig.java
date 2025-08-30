@@ -12,6 +12,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * frontend requests from specific origins.
  *
  * Portions of this code may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
  */
 @Configuration
 public class WebConfig {
