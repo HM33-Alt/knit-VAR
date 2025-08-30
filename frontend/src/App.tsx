@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { testDependencyData } from './testDependencyData';
 
 // Types
 type Node = {
@@ -24,7 +25,6 @@ type DependencyData = {
 
 // --- Analysis Logic ---
 function analyzeDependencies(data: DependencyData): DependencyData {
-  // Detect cycles using DFS
   const cycles: string[][] = [];
   const visited: Record<string, boolean> = {};
   const stack: string[] = [];
@@ -45,7 +45,6 @@ function analyzeDependencies(data: DependencyData): DependencyData {
     dfs(n.id);
   });
 
-  // Mark cycles in edges
   const edgeIssues: Record<string, string[]> = {};
   cycles.forEach(cycle => {
     for (let i = 0; i < cycle.length - 1; i++) {
@@ -57,7 +56,6 @@ function analyzeDependencies(data: DependencyData): DependencyData {
     }
   });
 
-  // Mark unnecessary edges (not on any shortest path)
   const necessaryEdges = new Set<string>();
   data.nodes.forEach(start => {
     const queue: { id: string; path: string[] }[] = [{ id: start.id, path: [] }];
@@ -79,36 +77,33 @@ function analyzeDependencies(data: DependencyData): DependencyData {
     }
   });
 
-  // Suggestions: Group nodes with many shared dependencies
-    const suggestionsByNode: Record<string, string[]> = {};
-    data.nodes.forEach(node => {
-      const outgoing = data.edges.filter(e => e.source === node.id).map(e => e.target);
-      if (outgoing.length > 3) {
-        suggestionsByNode[node.id] = [`Consider grouping ${outgoing.length} dependencies.`];
-      }
-    });
+  const suggestionsByNode: Record<string, string[]> = {};
+  data.nodes.forEach(node => {
+    const outgoing = data.edges.filter(e => e.source === node.id).map(e => e.target);
+    if (outgoing.length > 3) {
+      suggestionsByNode[node.id] = [`Consider grouping ${outgoing.length} dependencies.`];
+    }
+  });
 
-    // Suggestions: Remove unnecessary edges
-    const suggestionsByEdge: Record<string, string[]> = {};
-    data.edges.forEach(e => {
-      if (e.issues.includes('Unnecessary edge')) {
-        suggestionsByEdge[e.id] = ['Remove unnecessary edge for clarity/performance.'];
-      }
-    });
+  const suggestionsByEdge: Record<string, string[]> = {};
+  data.edges.forEach(e => {
+    if (e.issues.includes('Unnecessary edge')) {
+      suggestionsByEdge[e.id] = ['Remove unnecessary edge for clarity/performance.'];
+    }
+  });
 
-    // Update issues and suggestions in nodes/edges
-    return {
-      nodes: data.nodes.map(n => ({
-        ...n,
-        issues: cycles.some(cycle => cycle.includes(n.id)) ? ['Part of cycle'] : [],
-        suggestions: suggestionsByNode[n.id] || [],
-      })),
-      edges: data.edges.map(e => ({
-        ...e,
-        issues: edgeIssues[e.id] || [],
-        suggestions: suggestionsByEdge[e.id] || [],
-      })),
-    };
+  return {
+    nodes: data.nodes.map(n => ({
+      ...n,
+      issues: cycles.some(cycle => cycle.includes(n.id)) ? ['Part of cycle'] : [],
+      suggestions: suggestionsByNode[n.id] || [],
+    })),
+    edges: data.edges.map(e => ({
+      ...e,
+      issues: edgeIssues[e.id] || [],
+      suggestions: suggestionsByEdge[e.id] || [],
+    })),
+  };
 }
 
 // Help Modal
@@ -234,6 +229,7 @@ function DependencyGraph({
   setSelectedEdgeId,
   theme,
   svgRef,
+  setData,
 }: {
   nodes: Node[];
   edges: Edge[];
@@ -243,6 +239,7 @@ function DependencyGraph({
   setSelectedEdgeId: (id: string | null) => void;
   theme: 'dark' | 'light';
   svgRef: React.RefObject<SVGSVGElement | null>;
+  setData: React.Dispatch<React.SetStateAction<DependencyData>>;
 }) {
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 800, h: 600 });
   const [dragging, setDragging] = useState<string | null>(null);
@@ -250,7 +247,6 @@ function DependencyGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
-  // Zoom/pan handlers
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 0.9 : 1.1;
@@ -262,24 +258,25 @@ function DependencyGraph({
     }));
   };
 
-  // Drag node handlers
   const handleMouseDown = (id: string, e: React.MouseEvent) => {
     setDragging(id);
     setOffset({ x: e.clientX, y: e.clientY });
   };
   const handleMouseUp = () => setDragging(null);
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (dragging) {
       const dx = e.clientX - offset.x;
       const dy = e.clientY - offset.y;
-      const node = nodes.find(n => n.id === dragging);
-      if (node) {
-        node.x += dx;
-        node.y += dy;
-        setOffset({ x: e.clientX, y: e.clientY });
-      }
-    }
-  };
+      setOffset({ x: e.clientX, y: e.clientY });
+      setData((prev: DependencyData) => ({
+            ...prev,
+            nodes: prev.nodes.map((n: Node) =>
+              n.id === dragging ? { ...n, x: n.x + dx, y: n.y + dy } : n
+            )
+          }));
+        }
+      };
 
   const nodeColor = theme === 'dark' ? '#263238' : '#e0f7fa';
   const edgeColor = theme === 'dark' ? '#00bcd4' : '#00796b';
@@ -442,72 +439,89 @@ export default function App() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [backendStatus, setBackendStatus] = useState<string>('Checking...');
   const [data, setData] = useState<DependencyData>({ nodes: [], edges: [] });
   const [helpOpen, setHelpOpen] = useState(false);
+  const [dataSource, setDataSource] = useState<'live' | 'test'>('live');
+  const [testData, setTestData] = useState<DependencyData>(
+    analyzeDependencies(testDependencyData)
+  );
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Add update handlers here
+  // Data loading logic
+  useEffect(() => {
+    if (dataSource === 'test') {
+      setData(testData);
+    } else {
+      fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
+        .then(res => res.json())
+        .then(rawData => setData(analyzeDependencies(rawData)))
+        .catch(() => setData({ nodes: [], edges: [] }));
+    }
+  }, [dataSource, testData]);
+
+  // Persist changes to test data
   const handleUpdateNode = async (updatedNode: Node) => {
-    setData(prev => ({
-      ...prev,
-      nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
-    }));
-    try {
-      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/nodes/${updatedNode.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedNode)
+    if (dataSource === 'test') {
+      setData(prev => {
+        const newData = {
+          ...prev,
+          nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
+        };
+        setTestData(newData);
+        return newData;
       });
-    } catch (e) {
-      // Optionally show error feedback
+    } else {
+      setData(prev => ({
+        ...prev,
+        nodes: prev.nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
+      }));
+      try {
+        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/nodes/${updatedNode.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedNode)
+        });
+      } catch (e) {}
     }
   };
 
   const handleUpdateEdge = async (updatedEdge: Edge) => {
-    setData(prev => ({
-      ...prev,
-      edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
-    }));
-    try {
-      await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/edges/${updatedEdge.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedEdge)
+    if (dataSource === 'test') {
+      setData(prev => {
+        const newData = {
+          ...prev,
+          edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
+        };
+        setTestData(newData);
+        return newData;
       });
-    } catch (e) {
-      // Optionally show error feedback
+    } else {
+      setData(prev => ({
+        ...prev,
+        edges: prev.edges.map(e => e.id === updatedEdge.id ? updatedEdge : e)
+      }));
+      try {
+        await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/edges/${updatedEdge.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedEdge)
+        });
+      } catch (e) {}
     }
   };
 
-  // Fetch dependency data and run analysis
-  useEffect(() => {
-    fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
-      .then(res => res.json())
-      .then(rawData => setData(analyzeDependencies(rawData)))
-      .catch(() => setData({ nodes: [], edges: [] }));
-  }, []);
-
-  // Backend health check
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    const checkBackend = () => {
-      setBackendStatus('Checking...');
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
-
-      fetch(process.env.REACT_APP_BACKEND_URL + '/api/health', { signal: controller.signal })
-        .then(res => res.text())
-        .then(data => setBackendStatus(data.trim() === "OK" ? 'Connected' : data))
-        .catch(() => setBackendStatus('Error connecting to backend'))
-        .finally(() => clearTimeout(timeout));
-    };
-
-    checkBackend();
-    interval = setInterval(checkBackend, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
+  // Persist node dragging for test data
+  const handleSetData = (updater: React.SetStateAction<DependencyData>) => {
+    if (dataSource === 'test') {
+      setData(prev => {
+        const newData = typeof updater === 'function' ? (updater as (prev: DependencyData) => DependencyData)(prev) : updater;
+        setTestData(newData);
+        return newData;
+      });
+    } else {
+      setData(updater);
+    }
+  };
 
   const filteredNodes = data.nodes.filter(n =>
     n.label.toLowerCase().includes(search.toLowerCase())
@@ -521,14 +535,12 @@ export default function App() {
   const mainBg = theme === 'dark' ? '#282c34' : '#fff';
   const textColor = theme === 'dark' ? '#fff' : '#222';
 
-  // Export SVG handler
   const handleExportSVG = () => {
     const svg = svgRef.current;
     if (!svg) return;
     const serializer = new XMLSerializer();
     let source = serializer.serializeToString(svg);
 
-    // Add XML declaration if missing
     if (!source.match(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)) {
       source = source.replace(
         /^<svg/,
@@ -559,9 +571,14 @@ export default function App() {
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
       }}>
         <span style={{ fontWeight: 600, fontSize: 18, letterSpacing: 1 }}>Dependency Visualizer IDE</span>
-        <div style={{ marginLeft: 32, padding: '4px 12px', background: '#e0f7fa', color: '#222', borderRadius: 4, fontWeight: 500 }}>
-          Backend status: {backendStatus}
-        </div>
+        <select
+          value={dataSource}
+          onChange={e => setDataSource(e.target.value as 'live' | 'test')}
+          style={{ marginLeft: 16, padding: '6px 12px', borderRadius: 4 }}
+        >
+          <option value="live">Live Data</option>
+          <option value="test">Test Data</option>
+        </select>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>
           <button
             style={{
@@ -574,11 +591,14 @@ export default function App() {
               fontWeight: 500
             }}
             onClick={() => {
-              // Re-run analysis
-              fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
-                .then(res => res.json())
-                .then(rawData => setData(analyzeDependencies(rawData)))
-                .catch(() => setData({ nodes: [], edges: [] }));
+              if (dataSource === 'test') {
+                setData(testData);
+              } else {
+                fetch(process.env.REACT_APP_BACKEND_URL + '/api/dependencies')
+                  .then(res => res.json())
+                  .then(rawData => setData(analyzeDependencies(rawData)))
+                  .catch(() => setData({ nodes: [], edges: [] }));
+              }
             }}
           >Run Analysis</button>
           <button
@@ -726,6 +746,7 @@ export default function App() {
               setSelectedEdgeId={setSelectedEdgeId}
               theme={theme}
               svgRef={svgRef}
+              setData={handleSetData}
             />
           </div>
         </div>
