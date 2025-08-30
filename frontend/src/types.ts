@@ -1,3 +1,8 @@
+/**
+ * Portions of this file may have been assisted by GitHub Copilot.
+ * All code has been reviewed and manually verified by the author.
+ */
+
 // Represents a node in the dependency graph
 export type Node = {
   id: string;                       // Unique identifier for the node
