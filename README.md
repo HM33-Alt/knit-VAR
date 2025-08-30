@@ -2,7 +2,7 @@
 ### Tiktok TechJam 2025 Challenge - **5. Visualising Architecture with Knit**
 
 A web-based tool to visualize and analyze dependencies in Kotlin Knit-based projects.  
-The tool highlights potential issues, provides suggestions for improvement, and allows interactive exploration of project dependencies.
+The tool highlights potential issues, suggestions for improvement, and allows interactive exploration of project dependencies.
 
 ---
 
@@ -12,28 +12,16 @@ The tool highlights potential issues, provides suggestions for improvement, and 
 - **Issue Detection**:
   - Circular dependency detection
   - Unused dependency detection
-  - Version conflict identification
 - **Suggestions & Improvements**: Provides actionable recommendations for refactoring or performance enhancements.
 - **Graph Enhancements**:
   - Node color coding based on severity (`default`, `warning`, `critical`)
-  - Adjustable edge thickness
   - Zoom and pan interactions
   - Node and edge filtering
-- **Export Options**: Export graph data in JSON or CSV formats, and export the visual graph as SVG.
+- **Export Options**: Export graph data in JSON or CSV formats, and export the visual graph as SVG **_(incomplete)_**
 - **Demo/Test Data**: Built-in sample data to showcase features without requiring a Knit project.
 
 > **Screenshot Placeholder:**  
-> ![Graph Screenshot](./assets/screenshot_graph.png)
-
----
-
-## Problem Statement
-
-Understanding and managing dependencies in large Kotlin projects can be challenging. Circular dependencies, unused modules, and transitive issues often reduce maintainability and increase the risk of bugs.  
-This tool provides a clear, actionable visualization of dependency relationships, enabling developers to identify and resolve issues quickly.
-
-> **Screenshot Placeholder:**  
-> ![Issue Detection Example](./assets/screenshot_issues.png)
+> ![Graph Screenshot](./assets/home.png)
 
 ---
 
@@ -41,7 +29,7 @@ This tool provides a clear, actionable visualization of dependency relationships
 
 - **Frontend**: React, TypeScript
 - **Backend**: Node.js (file uploads and server-side analysis)
-- **IDE**: IntelliJ
+- **IDE**: IntelliJ IDEA 2025.2
 - **Version Control**: GitHub & SourceTree
 
 ---
@@ -66,10 +54,11 @@ This tool provides a clear, actionable visualization of dependency relationships
 
 ## Usage
 
-1. ** Setup **
+1. **Setup**
     * Clone the repository and install dependencies using `npm install`.
-    * Start the development server with `npm start`.
-    * Open `http://localhost:3000` in your browser.
+    * Navigate to backend folder and start with `mvn-springboot:run`.
+    * Navigate to front end and start with `npm start`.
+    * Open the frontend local host URL in your browser.
    
 2. **Upload a Kotlin `.kt` file** (optional)
 
@@ -80,31 +69,28 @@ This tool provides a clear, actionable visualization of dependency relationships
     * Click nodes to view details and suggestions in the sidebar.
     * Click edges to inspect dependencies and issues.
     * Use the search bar to filter nodes.
-    * Zoom and pan for better visibility of large graphs.
+    * Click any node and use the mouse scroll to zoom and/or drag to pan for better visibility.
 
 4. **Export Options**
 
-    * Export CSV/JSON of nodes and edges.
+    * Export CSV/JSON of nodes and edges. **_(incomplete)_**
     * Export the graph visualization as SVG.
 
 5. **Demo Data**
 
-    * If no file is uploaded, the tool loads `demoDependencyData` to demonstrate features.
-
-> **GIF Placeholder:**  
-> ![Demo GIF](./assets/demo.gif)
+    * If no file is uploaded, the tool loads `demoDependencyData` to demonstrate features when first accessing the web app / upon refresh.
 
 ---
 
 ## Repository
-[GitHub Repository](https://github.com/your-username/knit-dependency-visualizer)
+[Link to Github Repository](https://github.com/HM33-Alt/knit-VAR/)
 
 ---
 
 ## Demonstration Video
 Watch the project in action on YouTube:  
 [![Knit Dependency Visualizer Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
-* Duration: < 3 minutes
+* **Duration:** < 3 minutes
 * Showcases interactive graph, issue detection, and export features
 
 ---
@@ -115,5 +101,4 @@ MIT License
 ---
 
 ## Acknowledgements
-* Inspired by challenges in dependency management for Kotlin Knit projects.
-* Visualization ideas inspired by network graph tools.
+* Some parts of the code in this project were assisted by GitHub Copilot. Provided suggestions were reviewed, modified, and integrated by myself (solo developer/entrant).
