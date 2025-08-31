@@ -29,7 +29,7 @@ The tool highlights potential issues, suggestions for improvement, and allows in
 ## Development Tools
 
 - **Frontend**: React, TypeScript
-- **Backend**: Node.js (file uploads and server-side analysis)
+- **Backend**: Springboot (Java)
 - **IDE**: IntelliJ IDEA 2025.2
 - **Version Control**: GitHub & SourceTree
 
